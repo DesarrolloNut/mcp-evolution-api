@@ -7,6 +7,7 @@ Desktop, Claude Code o Cursor.
 - **121 herramientas** con cobertura completa de la API v2 (instancias, mensajes,
   chats, grupos, perfil, etiquetas, webhooks e integraciones).
 - **TypeScript** sobre el SDK oficial, transporte **stdio**.
+- **Imagen Docker** publicada en GHCR y ejecutable con `npx` (sin clonar).
 - **Multi-instancia**: cada herramienta acepta `instance`; opcionalmente una
   instancia por defecto.
 - **Grupos activables** vía `EVOLUTION_TOOLS` para no saturar el contexto del modelo.
@@ -15,14 +16,69 @@ Probado contra Evolution API `2.3.7`.
 
 ## Requisitos
 
-- Node.js 18 o superior.
 - Una instancia de Evolution API v2 y su **apikey global**.
+- Para `npx` / local: Node.js 18 o superior. Para Docker: solo Docker.
 
-## Instalación
+## Cómo ejecutarlo
+
+Hay tres formas, de la más simple a la más manual. Todas necesitan las mismas
+variables de entorno (ver [Configuración](#configuración)).
+
+### Opción A — Docker (recomendada)
+
+Imagen lista en GitHub Container Registry, no necesitas Node ni clonar nada:
 
 ```bash
-npm install
-npm run build
+docker run -i --rm \
+  -e EVOLUTION_BASE_URL=https://your-evolution-instance.com \
+  -e EVOLUTION_API_KEY=tu-apikey-global \
+  -e EVOLUTION_DEFAULT_INSTANCE=myinstance \
+  ghcr.io/renatoascencio/mcp-evolution-api:latest
+```
+
+> El servidor habla MCP por **stdio**, por eso `docker run` usa `-i` (mantiene
+> stdin abierto). No expone puertos.
+
+> ℹ️ La imagen es **multi-arquitectura** (`linux/amd64` + `linux/arm64`): corre
+> nativa en Macs Apple Silicon e Intel y en servidores Linux. Al publicarse por
+> primera vez en GHCR el paquete queda **privado**; para que cualquiera pueda
+> hacer `docker pull`, el mantenedor debe marcarlo **público** una sola vez:
+> pestaña **Packages** del repo → paquete `mcp-evolution-api` → **Package
+> settings** → **Change visibility** → **Public**. Mientras tanto, las Opciones
+> B (npx) y C (local) no dependen de GHCR.
+
+Construir la imagen localmente en vez de usar GHCR:
+
+```bash
+docker build -t evolution-api-mcp .
+docker run -i --rm -e EVOLUTION_BASE_URL=... -e EVOLUTION_API_KEY=... evolution-api-mcp
+```
+
+### Opción B — npx (sin clonar)
+
+Compila y ejecuta directamente desde GitHub:
+
+```bash
+EVOLUTION_BASE_URL=https://your-evolution-instance.com \
+EVOLUTION_API_KEY=tu-apikey-global \
+EVOLUTION_DEFAULT_INSTANCE=myinstance \
+npx -y github:RenatoAscencio/mcp-evolution-api
+```
+
+> ⚠️ La **primera** ejecución clona el repo, instala dependencias y compila
+> TypeScript (`prepare` → `tsc`), así que puede tardar ~30–60 s. Algunos clientes
+> MCP marcan el servidor como fallido si supera su timeout de arranque: si te
+> pasa, córrelo una vez en una terminal para precargar la caché de npx y reintenta,
+> o usa **Docker (Opción A)**, que no compila en cada arranque.
+
+### Opción C — Local (clonar y compilar)
+
+```bash
+git clone https://github.com/RenatoAscencio/mcp-evolution-api.git
+cd mcp-evolution-api
+npm install        # compila a dist/ automáticamente (script "prepare")
+cp .env.example .env   # edita tus credenciales
+npm start
 ```
 
 ## Configuración
@@ -39,7 +95,7 @@ Variables de entorno (ver [.env.example](.env.example)):
 
 > ⚠️ La apikey global da **control total** sobre la instancia (crear/borrar
 > instancias, enviar mensajes, leer chats). Trátala como un secreto: nunca la
-> subas al repositorio.
+> subas al repositorio ni la hornees en una imagen.
 
 ### Grupos de herramientas
 
@@ -69,10 +125,65 @@ Variables de entorno (ver [.env.example](.env.example)):
 | `evolutionbot` | — | CRUD bots + sessions |
 | `flowise` | — | CRUD bots + sessions |
 
-## Uso con Claude Code / Claude Desktop / Cursor
+## Configuración en tu cliente MCP
 
-Añade el servidor a tu configuración de MCP (`claude_desktop_config.json`,
-`.cursor/mcp.json`, o `claude mcp add`):
+Añade el servidor a tu config (`claude_desktop_config.json`, `.cursor/mcp.json`,
+o `claude mcp add`). Elige el bloque según cómo lo ejecutes.
+
+> ⚠️ **Claude Desktop (macOS) y el PATH.** Claude Desktop se lanza desde
+> Finder/Dock y hereda un PATH mínimo (`/usr/bin:/bin:/usr/sbin:/sbin`), por lo
+> que a menudo **no** encuentra `docker`, `npx` ni `node` y falla con
+> `spawn docker ENOENT` la primera vez. (Claude Code por CLI y Cursor heredan el
+> PATH de tu shell, así que no les afecta.) Solución: usa la **ruta absoluta** del
+> binario en `"command"`, obtenida con `which docker` / `which npx` / `which node`
+> (p.ej. `/usr/local/bin/docker` o `/opt/homebrew/bin/node`).
+
+**Con Docker:**
+
+```json
+{
+  "mcpServers": {
+    "evolution-api": {
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm",
+        "-e", "EVOLUTION_BASE_URL",
+        "-e", "EVOLUTION_API_KEY",
+        "-e", "EVOLUTION_DEFAULT_INSTANCE",
+        "ghcr.io/renatoascencio/mcp-evolution-api:latest"
+      ],
+      "env": {
+        "EVOLUTION_BASE_URL": "https://your-evolution-instance.com",
+        "EVOLUTION_API_KEY": "tu-apikey-global",
+        "EVOLUTION_DEFAULT_INSTANCE": "myinstance"
+      }
+    }
+  }
+}
+```
+
+> Los `-e VAR` sin valor reenvían la variable desde el bloque `env`, así la
+> apikey no queda escrita en `args`.
+
+**Con npx:**
+
+```json
+{
+  "mcpServers": {
+    "evolution-api": {
+      "command": "npx",
+      "args": ["-y", "github:RenatoAscencio/mcp-evolution-api"],
+      "env": {
+        "EVOLUTION_BASE_URL": "https://your-evolution-instance.com",
+        "EVOLUTION_API_KEY": "tu-apikey-global",
+        "EVOLUTION_DEFAULT_INSTANCE": "myinstance"
+      }
+    }
+  }
+}
+```
+
+**Local (compilado):**
 
 ```json
 {
@@ -83,22 +194,23 @@ Añade el servidor a tu configuración de MCP (`claude_desktop_config.json`,
       "env": {
         "EVOLUTION_BASE_URL": "https://your-evolution-instance.com",
         "EVOLUTION_API_KEY": "tu-apikey-global",
-        "EVOLUTION_DEFAULT_INSTANCE": "myinstance",
-        "EVOLUTION_TOOLS": "instance,message,chat,group"
+        "EVOLUTION_DEFAULT_INSTANCE": "myinstance"
       }
     }
   }
 }
 ```
 
-Con Claude Code por CLI:
+Con Claude Code por CLI (Docker):
 
 ```bash
 claude mcp add evolution-api \
   --env EVOLUTION_BASE_URL=https://your-evolution-instance.com \
   --env EVOLUTION_API_KEY=tu-apikey-global \
   --env EVOLUTION_DEFAULT_INSTANCE=myinstance \
-  -- node /ruta/absoluta/a/mcp-evolution-api/dist/index.js
+  -- docker run -i --rm \
+     -e EVOLUTION_BASE_URL -e EVOLUTION_API_KEY -e EVOLUTION_DEFAULT_INSTANCE \
+     ghcr.io/renatoascencio/mcp-evolution-api:latest
 ```
 
 ## Verificación
@@ -110,6 +222,16 @@ EVOLUTION_BASE_URL=https://your-evolution-instance.com \
 EVOLUTION_API_KEY=tu-apikey-global \
 EVOLUTION_DEFAULT_INSTANCE=myinstance \
 node dist/smoke.js
+```
+
+Con la imagen Docker (sin compilar nada local):
+
+```bash
+docker run --rm --entrypoint node \
+  -e EVOLUTION_BASE_URL=https://your-evolution-instance.com \
+  -e EVOLUTION_API_KEY=tu-apikey-global \
+  -e EVOLUTION_DEFAULT_INSTANCE=myinstance \
+  ghcr.io/renatoascencio/mcp-evolution-api:latest dist/smoke.js
 ```
 
 Salida esperada: `4/4 checks passed.`
@@ -134,7 +256,7 @@ Una vez conectado, puedes pedirle a Claude cosas como:
 
 ## Estructura
 
-```
+```text
 src/
   index.ts            Server MCP (stdio): lista y ejecuta tools
   config.ts           Carga/valida variables de entorno
@@ -144,6 +266,8 @@ src/
   schemas/common.ts   Fragmentos zod reutilizables
   tools/              Un archivo por controlador + integrations/
   smoke.ts            Smoke test de solo lectura
+Dockerfile            Imagen multi-stage (build + runtime no-root)
+.github/workflows/    CI (build) y publicación de la imagen en GHCR
 ```
 
 Las herramientas de bots IA (`typebot`, `openai`, `dify`, `evolutionbot`,
@@ -157,6 +281,11 @@ npm run watch    # compila en modo watch
 npm run build    # compila a dist/
 npm start        # ejecuta el servidor (requiere env)
 ```
+
+La CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) compila con `tsc` en
+cada push/PR. Al hacer push a `main` o publicar un tag `vX.Y.Z`, la imagen se
+publica en `ghcr.io/renatoascencio/mcp-evolution-api`
+([docker-publish.yml](.github/workflows/docker-publish.yml)).
 
 ## Licencia
 
