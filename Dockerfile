@@ -22,7 +22,7 @@ WORKDIR /app
 
 LABEL org.opencontainers.image.title="evolution-api-mcp" \
       org.opencontainers.image.description="MCP server for Evolution API v2 (WhatsApp)" \
-      org.opencontainers.image.source="https://github.com/RenatoAscencio/mcp-evolution-api" \
+      org.opencontainers.image.source="https://github.com/serversmx/mcp-evolution-api" \
       org.opencontainers.image.licenses="MIT"
 
 # Production dependencies only (no TypeScript / devDeps).

@@ -33,7 +33,7 @@ docker run -i --rm \
   -e EVOLUTION_BASE_URL=https://your-evolution-instance.com \
   -e EVOLUTION_API_KEY=tu-apikey-global \
   -e EVOLUTION_DEFAULT_INSTANCE=myinstance \
-  ghcr.io/renatoascencio/mcp-evolution-api:latest
+  ghcr.io/serversmx/mcp-evolution-api:latest
 ```
 
 > El servidor habla MCP por **stdio**, por eso `docker run` usa `-i` (mantiene
@@ -62,7 +62,7 @@ Compila y ejecuta directamente desde GitHub:
 EVOLUTION_BASE_URL=https://your-evolution-instance.com \
 EVOLUTION_API_KEY=tu-apikey-global \
 EVOLUTION_DEFAULT_INSTANCE=myinstance \
-npx -y github:RenatoAscencio/mcp-evolution-api
+npx -y github:serversmx/mcp-evolution-api
 ```
 
 > ⚠️ La **primera** ejecución clona el repo, instala dependencias y compila
@@ -74,7 +74,7 @@ npx -y github:RenatoAscencio/mcp-evolution-api
 ### Opción C — Local (clonar y compilar)
 
 ```bash
-git clone https://github.com/RenatoAscencio/mcp-evolution-api.git
+git clone https://github.com/serversmx/mcp-evolution-api.git
 cd mcp-evolution-api
 npm install        # compila a dist/ automáticamente (script "prepare")
 cp .env.example .env   # edita tus credenciales
@@ -150,7 +150,7 @@ o `claude mcp add`). Elige el bloque según cómo lo ejecutes.
         "-e", "EVOLUTION_BASE_URL",
         "-e", "EVOLUTION_API_KEY",
         "-e", "EVOLUTION_DEFAULT_INSTANCE",
-        "ghcr.io/renatoascencio/mcp-evolution-api:latest"
+        "ghcr.io/serversmx/mcp-evolution-api:latest"
       ],
       "env": {
         "EVOLUTION_BASE_URL": "https://your-evolution-instance.com",
@@ -172,7 +172,7 @@ o `claude mcp add`). Elige el bloque según cómo lo ejecutes.
   "mcpServers": {
     "evolution-api": {
       "command": "npx",
-      "args": ["-y", "github:RenatoAscencio/mcp-evolution-api"],
+      "args": ["-y", "github:serversmx/mcp-evolution-api"],
       "env": {
         "EVOLUTION_BASE_URL": "https://your-evolution-instance.com",
         "EVOLUTION_API_KEY": "tu-apikey-global",
@@ -210,7 +210,7 @@ claude mcp add evolution-api \
   --env EVOLUTION_DEFAULT_INSTANCE=myinstance \
   -- docker run -i --rm \
      -e EVOLUTION_BASE_URL -e EVOLUTION_API_KEY -e EVOLUTION_DEFAULT_INSTANCE \
-     ghcr.io/renatoascencio/mcp-evolution-api:latest
+     ghcr.io/serversmx/mcp-evolution-api:latest
 ```
 
 ## Verificación
@@ -231,7 +231,7 @@ docker run --rm --entrypoint node \
   -e EVOLUTION_BASE_URL=https://your-evolution-instance.com \
   -e EVOLUTION_API_KEY=tu-apikey-global \
   -e EVOLUTION_DEFAULT_INSTANCE=myinstance \
-  ghcr.io/renatoascencio/mcp-evolution-api:latest dist/smoke.js
+  ghcr.io/serversmx/mcp-evolution-api:latest dist/smoke.js
 ```
 
 Salida esperada: `4/4 checks passed.`
@@ -284,7 +284,7 @@ npm start        # ejecuta el servidor (requiere env)
 
 La CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) compila con `tsc` en
 cada push/PR. Al hacer push a `main` o publicar un tag `vX.Y.Z`, la imagen se
-publica en `ghcr.io/renatoascencio/mcp-evolution-api`
+publica en `ghcr.io/serversmx/mcp-evolution-api`
 ([docker-publish.yml](.github/workflows/docker-publish.yml)).
 
 ## Licencia
