@@ -4,7 +4,7 @@
 
 import { z } from "zod";
 import type { ToolDef, ToolGroup } from "../../types.js";
-import { instanceField } from "../../schemas/common.js";
+import { instanceField, safeUrlField } from "../../schemas/common.js";
 
 const eventsField = z
   .array(z.string())
@@ -20,7 +20,7 @@ const tools: ToolDef[] = [
     inputSchema: z.object({
       instance: instanceField,
       enabled: z.boolean().describe("Enable or disable the webhook."),
-      url: z.string().describe("Webhook URL."),
+      url: safeUrlField.describe("Webhook URL (must be public HTTP/HTTPS)."),
       headers: z.record(z.string()).optional().describe("Extra HTTP headers."),
       byEvents: z.boolean().optional().describe("Append the event name to the URL path."),
       base64: z.boolean().optional().describe("Send media as base64 in webhook payloads."),
@@ -45,7 +45,7 @@ const tools: ToolDef[] = [
 
 export const webhookGroup: ToolGroup = {
   group: "webhook",
-  core: true,
+  core: false,
   label: "Webhook",
   tools,
 };

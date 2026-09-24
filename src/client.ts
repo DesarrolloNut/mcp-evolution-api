@@ -118,8 +118,9 @@ export class EvolutionClient {
   }
 
   private buildUrl(path: string, query?: RequestOptions["query"]): string {
-    const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-    const url = new URL(this.config.baseUrl + normalizedPath);
+    const base = this.config.baseUrl.endsWith("/") ? this.config.baseUrl : `${this.config.baseUrl}/`;
+    const relativePath = path.replace(/^\/+/, "");
+    const url = new URL(relativePath, base);
     if (query) {
       for (const [key, value] of Object.entries(query)) {
         if (value !== undefined && value !== null) {

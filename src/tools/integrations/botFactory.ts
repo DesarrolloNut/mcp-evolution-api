@@ -10,7 +10,7 @@
 
 import { z } from "zod";
 import type { ToolDef } from "../../types.js";
-import { instanceField } from "../../schemas/common.js";
+import { instanceField, safeIdField } from "../../schemas/common.js";
 
 export interface BotFactoryOptions {
   /** Group key, used in tool names: evolution_<group>_<action>. */
@@ -22,7 +22,7 @@ export interface BotFactoryOptions {
 }
 
 export function makeBotCrudTools({ group, base, label }: BotFactoryOptions): ToolDef[] {
-  const idField = z.string().describe(`${label} bot id.`);
+  const idField = safeIdField.describe(`${label} bot id.`);
 
   return [
     {

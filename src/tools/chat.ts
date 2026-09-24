@@ -137,7 +137,14 @@ const tools: ToolDef[] = [
     description: "Find contacts, optionally filtered.",
     inputSchema: z.object({
       instance: instanceField,
-      where: z.record(z.any()).optional().describe("Filter object, e.g. { id: '5215550123@s.whatsapp.net' }."),
+      where: z
+        .object({
+          id: z.string().optional().describe("Contact WhatsApp JID."),
+          pushName: z.string().optional().describe("Contact display name."),
+        })
+        .passthrough()
+        .optional()
+        .describe("Filter object, e.g. { id: '5215550123@s.whatsapp.net' }."),
     }),
     handler: async (client, args) => {
       const inst = client.resolveInstance(args.instance as string | undefined);
@@ -150,7 +157,19 @@ const tools: ToolDef[] = [
     inputSchema: z.object({
       instance: instanceField,
       where: z
-        .record(z.any())
+        .object({
+          key: z
+            .object({
+              remoteJid: z.string().optional().describe("Chat JID, e.g. 5215550123@s.whatsapp.net"),
+              fromMe: z.boolean().optional().describe("Filter by sender."),
+              id: z.string().optional().describe("Message ID."),
+              participant: z.string().optional().describe("Participant JID."),
+            })
+            .optional(),
+          messageType: z.string().optional().describe("Message type filter, e.g. conversation, extendedTextMessage."),
+          pushName: z.string().optional().describe("Sender name."),
+        })
+        .passthrough()
         .optional()
         .describe("Filter object, e.g. { key: { remoteJid: '...@s.whatsapp.net' } }."),
       page: z.number().int().positive().optional().describe("Page number."),
@@ -179,7 +198,13 @@ const tools: ToolDef[] = [
     description: "List chats for the instance.",
     inputSchema: z.object({
       instance: instanceField,
-      where: z.record(z.any()).optional().describe("Optional filter object."),
+      where: z
+        .object({
+          id: z.string().optional().describe("Chat JID, e.g. 1203630xxxxxxxxx@g.us"),
+        })
+        .passthrough()
+        .optional()
+        .describe("Optional filter object."),
     }),
     handler: async (client, args) => {
       const inst = client.resolveInstance(args.instance as string | undefined);

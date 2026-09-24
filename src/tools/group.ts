@@ -6,7 +6,7 @@
 
 import { z } from "zod";
 import type { ToolDef, ToolGroup } from "../types.js";
-import { instanceField } from "../schemas/common.js";
+import { instanceField, safeUrlField } from "../schemas/common.js";
 
 const groupJidField = z.string().describe("Group JID, e.g. 1203630xxxxxxxxx@g.us");
 
@@ -32,7 +32,7 @@ const tools: ToolDef[] = [
     inputSchema: z.object({
       instance: instanceField,
       groupJid: groupJidField,
-      image: z.string().describe("Image URL."),
+      image: safeUrlField.describe("Image URL (must be public HTTP/HTTPS)."),
     }),
     handler: async (client, args) => {
       const inst = client.resolveInstance(args.instance as string | undefined);
@@ -175,7 +175,8 @@ const tools: ToolDef[] = [
   },
   {
     name: "evolution_group_update_participant",
-    description: "Add, remove, promote, or demote group participants.",
+    description:
+      "Add, remove, promote, or demote group participants. PRIVILEGE WARNING: promoting grants admin control of the WhatsApp group; demoting/removing alters group governance.",
     inputSchema: z.object({
       instance: instanceField,
       groupJid: groupJidField,

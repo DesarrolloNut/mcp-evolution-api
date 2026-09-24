@@ -4,7 +4,13 @@
 
 import { z } from "zod";
 import type { ToolDef, ToolGroup } from "../types.js";
-import { instanceField, numberField, messageKey, sendOptionsShape } from "../schemas/common.js";
+import {
+  instanceField,
+  numberField,
+  messageKey,
+  sendOptionsShape,
+  safeMediaField,
+} from "../schemas/common.js";
 
 /** Helper: POST /message/<action>/<instance> with the args (minus instance) as body. */
 function sendHandler(action: string): ToolDef["handler"] {
@@ -22,7 +28,7 @@ const tools: ToolDef[] = [
     inputSchema: z.object({
       instance: instanceField,
       number: numberField,
-      text: z.string().describe("Message text."),
+      text: z.string().max(4096, "Message text exceeds maximum length of 4096 characters.").describe("Message text."),
       linkPreview: z.boolean().optional().describe("Enable link preview for URLs."),
       ...sendOptionsShape,
     }),
@@ -35,7 +41,7 @@ const tools: ToolDef[] = [
       instance: instanceField,
       number: numberField,
       mediatype: z.enum(["image", "video", "document"]).describe("Type of media."),
-      media: z.string().describe("Media URL or base64 string."),
+      media: safeMediaField,
       mimetype: z.string().optional().describe("MIME type, e.g. image/png, application/pdf."),
       caption: z.string().optional().describe("Caption text."),
       fileName: z.string().optional().describe("File name (recommended for documents)."),
@@ -49,7 +55,7 @@ const tools: ToolDef[] = [
     inputSchema: z.object({
       instance: instanceField,
       number: numberField,
-      video: z.string().describe("Video URL or base64."),
+      video: safeMediaField.describe("Video URL or base64."),
       ...sendOptionsShape,
     }),
     handler: sendHandler("sendPtv"),
@@ -60,7 +66,7 @@ const tools: ToolDef[] = [
     inputSchema: z.object({
       instance: instanceField,
       number: numberField,
-      audio: z.string().describe("Audio URL or base64."),
+      audio: safeMediaField.describe("Audio URL or base64."),
       ...sendOptionsShape,
     }),
     handler: sendHandler("sendWhatsAppAudio"),
@@ -71,7 +77,7 @@ const tools: ToolDef[] = [
     inputSchema: z.object({
       instance: instanceField,
       number: numberField,
-      sticker: z.string().describe("Sticker image URL or base64 (webp recommended)."),
+      sticker: safeMediaField.describe("Sticker image URL or base64 (webp recommended)."),
       ...sendOptionsShape,
     }),
     handler: sendHandler("sendSticker"),

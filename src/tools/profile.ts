@@ -4,7 +4,7 @@
 
 import { z } from "zod";
 import type { ToolDef, ToolGroup } from "../types.js";
-import { instanceField, numberField } from "../schemas/common.js";
+import { instanceField, numberField, safeUrlField } from "../schemas/common.js";
 
 const tools: ToolDef[] = [
   {
@@ -51,7 +51,7 @@ const tools: ToolDef[] = [
     description: "Update the instance's own profile picture by URL.",
     inputSchema: z.object({
       instance: instanceField,
-      picture: z.string().describe("Image URL for the new profile picture."),
+      picture: safeUrlField.describe("Image URL for the new profile picture (must be public HTTP/HTTPS)."),
     }),
     handler: async (client, args) => {
       const inst = client.resolveInstance(args.instance as string | undefined);

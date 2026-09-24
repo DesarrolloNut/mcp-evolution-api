@@ -24,16 +24,16 @@ import { evolutionBotGroup } from "./integrations/evolutionBot.js";
 import { flowiseGroup } from "./integrations/flowise.js";
 
 export const allGroups: ToolGroup[] = [
-  // Core (enabled by default)
-  instanceGroup,
+  // Core (enabled by default - safe operational tools)
   settingsGroup,
   messageGroup,
   chatGroup,
   profileGroup,
   labelGroup,
   groupGroup,
+  // Opt-in (infra / integrations / privileged management)
+  instanceGroup,
   webhookGroup,
-  // Opt-in
   websocketGroup,
   rabbitmqGroup,
   sqsGroup,

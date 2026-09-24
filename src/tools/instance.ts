@@ -4,14 +4,14 @@
 
 import { z } from "zod";
 import type { ToolDef, ToolGroup } from "../types.js";
-import { instanceField } from "../schemas/common.js";
+import { instanceField, safeIdField } from "../schemas/common.js";
 
 const tools: ToolDef[] = [
   {
     name: "evolution_instance_create",
     description: "Create a new WhatsApp instance.",
     inputSchema: z.object({
-      instanceName: z.string().describe("Name for the new instance."),
+      instanceName: safeIdField.describe("Name for the new instance (alphanumeric, underscores, dashes, dots)."),
       integration: z
         .enum(["WHATSAPP-BAILEYS", "WHATSAPP-BUSINESS", "EVOLUTION"])
         .default("WHATSAPP-BAILEYS")
@@ -28,7 +28,7 @@ const tools: ToolDef[] = [
     name: "evolution_instance_fetch",
     description: "List instances (optionally filtered by name or id).",
     inputSchema: z.object({
-      instanceName: z.string().optional().describe("Filter by instance name."),
+      instanceName: safeIdField.optional().describe("Filter by instance name."),
       instanceId: z.string().optional().describe("Filter by instance id."),
     }),
     handler: async (client, args) =>
@@ -105,7 +105,7 @@ const tools: ToolDef[] = [
 
 export const instanceGroup: ToolGroup = {
   group: "instance",
-  core: true,
+  core: false,
   label: "Instance management",
   tools,
 };

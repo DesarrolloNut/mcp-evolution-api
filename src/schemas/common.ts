@@ -3,14 +3,70 @@
  */
 
 import { z } from "zod";
+ 
+/** Regular expression for safe alphanumeric identifiers (no slashes, backslashes, or directory traversal). */
+export const safeIdentifierRegex = /^[a-zA-Z0-9_\-\.]+$/;
+
+/** A safe identifier schema preventing path traversal or special URL characters. */
+export const safeIdField = z
+  .string()
+  .min(1)
+  .regex(
+    safeIdentifierRegex,
+    "Identifier contains invalid characters. Only alphanumeric, '_', '-', and '.' are allowed.",
+  )
+  .refine((val) => !val.includes(".."), "Identifier cannot contain directory traversal '..'");
 
 /** Optional instance override; falls back to EVOLUTION_DEFAULT_INSTANCE. */
-export const instanceField = z
-  .string()
+export const instanceField = safeIdField
   .optional()
   .describe(
     "WhatsApp instance name. Optional if EVOLUTION_DEFAULT_INSTANCE is configured.",
   );
+
+/** Blocklist of private, link-local, and cloud metadata hostnames / IP ranges to mitigate SSRF. */
+export const BLOCKED_HOST_PATTERNS = [
+  /^localhost$/i,
+  /^127\.\d+\.\d+\.\d+$/,
+  /^10\.\d+\.\d+\.\d+$/,
+  /^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/,
+  /^192\.168\.\d+\.\d+$/,
+  /^169\.254\.\d+\.\d+$/, // AWS/GCP/Azure instance metadata
+  /^::1$/,
+  /^0\.0\.0\.0$/,
+];
+
+/** Validates that a URL uses http/https and does not target localhost, private IPs, or cloud metadata. */
+export const safeUrlField = z
+  .string()
+  .url("Must be a valid URL.")
+  .refine((val) => {
+    try {
+      const parsed = new URL(val);
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+        return false;
+      }
+      return !BLOCKED_HOST_PATTERNS.some((pattern) => pattern.test(parsed.hostname));
+    } catch {
+      return false;
+    }
+  }, "URL must use http/https and cannot point to localhost, private IP ranges, or cloud metadata endpoints.");
+
+/** Validates media input: allows base64/data URIs or safe public HTTP/HTTPS URLs. */
+export const safeMediaField = z
+  .string()
+  .refine((val) => {
+    if (val.startsWith("http://") || val.startsWith("https://")) {
+      try {
+        const parsed = new URL(val);
+        return !BLOCKED_HOST_PATTERNS.some((pattern) => pattern.test(parsed.hostname));
+      } catch {
+        return false;
+      }
+    }
+    return true;
+  }, "Media URL cannot point to localhost, private IP ranges, or cloud metadata endpoints.")
+  .describe("Media URL (public HTTP/HTTPS) or base64 data string.");
 
 /** A recipient number or full JID (e.g. 5215550123 or 5215550123@s.whatsapp.net). */
 export const numberField = z
