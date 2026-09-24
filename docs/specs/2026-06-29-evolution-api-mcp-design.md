@@ -39,8 +39,8 @@ de endpoints, transporte stdio local, instancia como parámetro por herramienta.
 | `EVOLUTION_DEFAULT_INSTANCE` | no | instancia por defecto si no se pasa `instance` |
 | `EVOLUTION_TOOLS` | no | allowlist de grupos separada por comas; vacío = grupos núcleo |
 
-Grupos núcleo (default): `instance, settings, message, chat, profile, label, group, webhook`.
-Opt-in: `websocket, rabbitmq, sqs, chatwoot, typebot, openai, dify, evolutionbot, flowise`.
+Grupos núcleo (default - seguros): `settings, message, chat, profile, label, group`.
+Opt-in (infra / admin / integraciones): `instance, webhook, websocket, rabbitmq, sqs, chatwoot, typebot, openai, dify, evolutionbot, flowise`.
 Valor especial `all` activa todos.
 
 ## Estructura
@@ -86,10 +86,13 @@ Nombres prefijados: `evolution_<grupo>_<acción>` (ej. `evolution_message_send_t
 - Smoke: script contra la instancia real usando solo lecturas
   (`connectionState`, `fetchInstances`, `settings/find`). Sin enviar mensajes.
 
-## Seguridad
+## Seguridad y Mitigación de Prompt Injection
 
 - apikey solo por env; `.gitignore` + `.env.example`.
 - README advierte que la apikey global da control total de la instancia.
+- Aislamiento semántico: toda lectura de WhatsApp (`find_*`, `fetch_*`) se encapsula en `<untrusted_whatsapp_data>` con escape de cierre para neutralizar Indirect Prompt Injection.
+- Menor privilegio: `instance` y `webhook` configurados como opt-in (`core: false`) para evitar daños a la infraestructura por agentes no supervisados.
+- Mitigación SSRF / Path Traversal: validación regex estricta de IDs/instancias y descarte de URLs de loopback o metadatos de nube en webhooks y multimedia.
 
 ## Inventario de grupos (resumen)
 
