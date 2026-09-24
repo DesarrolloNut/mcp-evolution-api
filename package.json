@@ -1,18 +1,18 @@
 {
-  "name": "evolution-api-mcp",
+  "name": "mcp-whatsapp",
   "version": "0.1.1",
   "description": "MCP server for Evolution API v2 (WhatsApp) — full endpoint coverage over stdio.",
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/serversmx/mcp-evolution-api.git"
+    "url": "git+https://github.com/DesarrolloNut/mcp-whatsapp.git"
   },
-  "homepage": "https://github.com/serversmx/mcp-evolution-api#readme",
+  "homepage": "https://github.com/DesarrolloNut/mcp-whatsapp#readme",
   "bugs": {
-    "url": "https://github.com/serversmx/mcp-evolution-api/issues"
+    "url": "https://github.com/DesarrolloNut/mcp-whatsapp/issues"
   },
   "bin": {
-    "evolution-api-mcp": "dist/index.js"
+    "mcp-whatsapp": "dist/index.js"
   },
   "files": [
     "dist",

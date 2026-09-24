@@ -20,9 +20,9 @@ FROM node:22-alpine AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
 
-LABEL org.opencontainers.image.title="evolution-api-mcp" \
+LABEL org.opencontainers.image.title="mcp-whatsapp" \
       org.opencontainers.image.description="MCP server for Evolution API v2 (WhatsApp)" \
-      org.opencontainers.image.source="https://github.com/serversmx/mcp-evolution-api" \
+      org.opencontainers.image.source="https://github.com/DesarrolloNut/mcp-whatsapp" \
       org.opencontainers.image.licenses="MIT"
 
 # Production dependencies only (no TypeScript / devDeps).

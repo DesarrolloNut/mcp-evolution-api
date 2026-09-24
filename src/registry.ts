@@ -44,7 +44,7 @@ export function resolveEnabledGroups(allowlist: string | undefined): Set<string>
   if (unknown.length > 0) {
     // Warn but do not crash — log to stderr so stdio transport stays clean.
     console.error(
-      `[evolution-api-mcp] Unknown tool group(s) in EVOLUTION_TOOLS: ${unknown.join(", ")}. ` +
+      `[mcp-whatsapp] Unknown tool group(s) in EVOLUTION_TOOLS: ${unknown.join(", ")}. ` +
         `Known groups: ${[...known].join(", ")}`,
     );
   }

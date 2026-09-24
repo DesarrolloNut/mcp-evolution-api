@@ -20,8 +20,8 @@ import { loadConfig } from "./config.js";
 import { EvolutionClient, EvolutionApiError } from "./client.js";
 import { buildRegistry } from "./registry.js";
 
-const PKG_NAME = "evolution-api-mcp";
-const PKG_VERSION = "0.1.0";
+const PKG_NAME = "mcp-whatsapp";
+const PKG_VERSION = "0.1.1";
 
 async function main(): Promise<void> {
   const config = loadConfig();

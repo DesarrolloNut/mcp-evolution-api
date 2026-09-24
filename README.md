@@ -33,7 +33,7 @@ docker run -i --rm \
   -e EVOLUTION_BASE_URL=https://your-evolution-instance.com \
   -e EVOLUTION_API_KEY=tu-apikey-global \
   -e EVOLUTION_DEFAULT_INSTANCE=myinstance \
-  ghcr.io/serversmx/mcp-evolution-api:latest
+  ghcr.io/desarrollonut/mcp-whatsapp:latest
 ```
 
 > El servidor habla MCP por **stdio**, por eso `docker run` usa `-i` (mantiene
@@ -43,15 +43,15 @@ docker run -i --rm \
 > nativa en Macs Apple Silicon e Intel y en servidores Linux. Al publicarse por
 > primera vez en GHCR el paquete queda **privado**; para que cualquiera pueda
 > hacer `docker pull`, el mantenedor debe marcarlo **público** una sola vez:
-> pestaña **Packages** del repo → paquete `mcp-evolution-api` → **Package
+> pestaña **Packages** del repo → paquete `mcp-whatsapp` → **Package
 > settings** → **Change visibility** → **Public**. Mientras tanto, las Opciones
 > B (npx) y C (local) no dependen de GHCR.
 
 Construir la imagen localmente en vez de usar GHCR:
 
 ```bash
-docker build -t evolution-api-mcp .
-docker run -i --rm -e EVOLUTION_BASE_URL=... -e EVOLUTION_API_KEY=... evolution-api-mcp
+docker build -t mcp-whatsapp .
+docker run -i --rm -e EVOLUTION_BASE_URL=... -e EVOLUTION_API_KEY=... mcp-whatsapp
 ```
 
 ### Opción B — npx (sin clonar)
@@ -62,7 +62,7 @@ Compila y ejecuta directamente desde GitHub:
 EVOLUTION_BASE_URL=https://your-evolution-instance.com \
 EVOLUTION_API_KEY=tu-apikey-global \
 EVOLUTION_DEFAULT_INSTANCE=myinstance \
-npx -y github:serversmx/mcp-evolution-api
+npx -y github:DesarrolloNut/mcp-whatsapp
 ```
 
 > ⚠️ La **primera** ejecución clona el repo, instala dependencias y compila
@@ -74,8 +74,8 @@ npx -y github:serversmx/mcp-evolution-api
 ### Opción C — Local (clonar y compilar)
 
 ```bash
-git clone https://github.com/serversmx/mcp-evolution-api.git
-cd mcp-evolution-api
+git clone https://github.com/DesarrolloNut/mcp-whatsapp.git
+cd mcp-whatsapp
 npm install        # compila a dist/ automáticamente (script "prepare")
 cp .env.example .env   # edita tus credenciales
 npm start
@@ -152,7 +152,7 @@ o `claude mcp add`). Elige el bloque según cómo lo ejecutes.
         "-e", "EVOLUTION_BASE_URL",
         "-e", "EVOLUTION_API_KEY",
         "-e", "EVOLUTION_DEFAULT_INSTANCE",
-        "ghcr.io/serversmx/mcp-evolution-api:latest"
+        "ghcr.io/desarrollonut/mcp-whatsapp:latest"
       ],
       "env": {
         "EVOLUTION_BASE_URL": "https://your-evolution-instance.com",
@@ -172,9 +172,9 @@ o `claude mcp add`). Elige el bloque según cómo lo ejecutes.
 ```json
 {
   "mcpServers": {
-    "evolution-api": {
+    "whatsapp": {
       "command": "npx",
-      "args": ["-y", "github:serversmx/mcp-evolution-api"],
+      "args": ["-y", "github:DesarrolloNut/mcp-whatsapp"],
       "env": {
         "EVOLUTION_BASE_URL": "https://your-evolution-instance.com",
         "EVOLUTION_API_KEY": "tu-apikey-global",
@@ -190,9 +190,9 @@ o `claude mcp add`). Elige el bloque según cómo lo ejecutes.
 ```json
 {
   "mcpServers": {
-    "evolution-api": {
+    "whatsapp": {
       "command": "node",
-      "args": ["/ruta/absoluta/a/mcp-evolution-api/dist/index.js"],
+      "args": ["/ruta/absoluta/a/mcp-whatsapp/dist/index.js"],
       "env": {
         "EVOLUTION_BASE_URL": "https://your-evolution-instance.com",
         "EVOLUTION_API_KEY": "tu-apikey-global",
@@ -206,13 +206,13 @@ o `claude mcp add`). Elige el bloque según cómo lo ejecutes.
 Con Claude Code por CLI (Docker):
 
 ```bash
-claude mcp add evolution-api \
+claude mcp add whatsapp \
   --env EVOLUTION_BASE_URL=https://your-evolution-instance.com \
   --env EVOLUTION_API_KEY=tu-apikey-global \
   --env EVOLUTION_DEFAULT_INSTANCE=myinstance \
   -- docker run -i --rm \
      -e EVOLUTION_BASE_URL -e EVOLUTION_API_KEY -e EVOLUTION_DEFAULT_INSTANCE \
-     ghcr.io/serversmx/mcp-evolution-api:latest
+     ghcr.io/desarrollonut/mcp-whatsapp:latest
 ```
 
 ## Verificación
@@ -233,7 +233,7 @@ docker run --rm --entrypoint node \
   -e EVOLUTION_BASE_URL=https://your-evolution-instance.com \
   -e EVOLUTION_API_KEY=tu-apikey-global \
   -e EVOLUTION_DEFAULT_INSTANCE=myinstance \
-  ghcr.io/serversmx/mcp-evolution-api:latest dist/smoke.js
+  ghcr.io/desarrollonut/mcp-whatsapp:latest dist/smoke.js
 ```
 
 Salida esperada: `4/4 checks passed.`
@@ -286,7 +286,9 @@ npm start        # ejecuta el servidor (requiere env)
 
 La CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) compila con `tsc` en
 cada push/PR. Al hacer push a `main` o publicar un tag `vX.Y.Z`, la imagen se
-publica en `ghcr.io/serversmx/mcp-evolution-api`
+publica en `ghcr.io/desarrollonut/mcp-whatsapp`
+([docker-publish.yml](.github/workflows/docker-publish.yml)).
+
 ## Seguridad y Mitigación de Prompt Injection
 
 WhatsApp es un canal de comunicación abierto donde participantes externos o miembros de grupos pueden enviar contenido malicioso diseñado para alterar las instrucciones del modelo (**Indirect Prompt Injection**). Este servidor MCP implementa una arquitectura defensiva nativa:
