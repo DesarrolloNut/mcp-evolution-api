@@ -10,6 +10,7 @@ Permite conectar agentes IA a múltiples proveedores de WhatsApp (**Evolution AP
 
 - **Abstracción Agnóstica de Proveedores:** Conecta tu infraestructura a Evolution API v2, Meta Cloud API o Twilio bajo una interfaz unificada.
 - **Gestión Multicanal:** Configura múltiples números o líneas telefónicas (ej. *trabajo*, *personal*, *soporte*, *ventas*) y designa una **línea por defecto** global.
+- **REST API Directa (`/api`):** Endpoints HTTP estándar para enviar mensajes, consultar chats y verificar números sin necesidad de usar el protocolo MCP.
 - **Panel Web de Administración (`/panel`):** Interfaz SPA moderna (tema oscuro inspirado en WhatsApp) para registrar proveedores, añadir líneas, probar conectividad y monitorear el estado del servicio en tiempo real.
 - **Servidor MCP HTTP/SSE:** Transporte moderno `Streamable HTTP / SSE` con autenticación mediante Bearer token (`MCP_API_TOKEN`).
 - **Persistencia Montada en Disco (SQLite):** Configuración resguardada en `./data/mcp-whatsapp.db` con modo WAL (Write-Ahead Logging), garantizando **cero pérdida de datos** tras reinicios o despliegues Docker.
@@ -40,6 +41,7 @@ docker compose up -d
 El servicio estará disponible en:
 - **Panel de Administración:** `http://localhost:3000/panel` (Usuario: `admin`, Clave: `admin` por defecto)
 - **Endpoint MCP para Agentes IA:** `http://localhost:3000/mcp`
+- **REST API Directa:** `http://localhost:3000/api` (Ver [docs/rest-api-reference.md](docs/rest-api-reference.md))
 
 ---
 
@@ -170,6 +172,7 @@ Los respaldos se almacenan automáticamente con fecha y hora en `data/backups/`.
 
 ## Documentación Técnica Adicional
 
+- [docs/rest-api-reference.md](docs/rest-api-reference.md): Referencia completa de la REST API HTTP directa para mensajería, chats y grupos.
 - [docs/database-persistence.md](docs/database-persistence.md): Arquitectura de almacenamiento en disco, modo WAL y volúmenes Docker.
 - [docs/providers-and-channels.md](docs/providers-and-channels.md): Modelo conceptual de proveedores, canales/líneas y resolución por defecto.
 - [docs/admin-panel-guide.md](docs/admin-panel-guide.md): Guía de uso del panel web SPA y credenciales de acceso.

@@ -28,6 +28,7 @@ import { AdminAuthService } from './application/services/adminAuth.js';
 import { createUnifiedMcpServer } from './interfaces/mcp/server.js';
 import { createMcpAuthMiddleware, setupMcpTransport } from './interfaces/mcp/transport.js';
 import { createAdminRouter } from './interfaces/admin/router.js';
+import { createMessagingRestRouter } from './interfaces/rest/messagingRouter.js';
 import { wrapUntrustedContent } from './application/security/promptInjection.js';
 
 // Legacy direct client & registry imports for stdio mode
@@ -100,6 +101,9 @@ async function startServerMode(): Promise<void> {
     })
   );
 
+  // Direct Messaging & Chats REST API
+  app.use('/api', createMessagingRestRouter(channelResolver, config.mcpApiToken));
+
   // MCP Protocol Endpoints (Streamable HTTP / SSE)
   app.all('/mcp', mcpAuthMiddleware, (req, res) => {
     mcpTransportHandler(req, res);
@@ -109,6 +113,7 @@ async function startServerMode(): Promise<void> {
   app.listen(config.httpPort, config.httpHost, () => {
     console.error(`[${PKG_NAME} v${PKG_VERSION}] HTTP gateway active on http://${config.httpHost}:${config.httpPort}`);
     console.error(`  - MCP Endpoint:  http://${config.httpHost}:${config.httpPort}/mcp`);
+    console.error(`  - REST API:      http://${config.httpHost}:${config.httpPort}/api`);
     console.error(`  - Admin Panel:   http://${config.httpHost}:${config.httpPort}/panel`);
     console.error(`  - Database:      ${config.sqlitePath} (WAL mode)`);
   });
