@@ -76,9 +76,12 @@ Todas las herramientas unificadas operan con el prefijo `whatsapp_*`. Para compa
 
 ---
 
-## 3. Modo Legacy (stdio)
+## 3. Modo Legacy (stdio) — Solo Retrocompatibilidad
+ 
+> ℹ️ **Nota de Diseño:** En el modo Gateway (v2.0), **no configuras ningún proveedor ni número por variables de entorno**; todo se administra dinámicamente desde el panel web (`http://localhost:3000/panel`).
+>
+> La siguiente configuración es **exclusivamente un fallback** para clientes antiguos que no soportan conexión HTTP/SSE y requerían el modo monolítico v1.x:
 
-Si necesitas utilizar el modo clásico de consola de la v1.x:
 1. Define la variable de entorno `WHATSAPP_MODE=stdio`.
-2. Configura las variables `EVOLUTION_BASE_URL` y `EVOLUTION_API_KEY`.
+2. Opcionalmente especifica `EVOLUTION_BASE_URL` y `EVOLUTION_API_KEY`.
 3. El servidor correrá sobre los flujos de entrada/salida estándar sin abrir puertos de red.

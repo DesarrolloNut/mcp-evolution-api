@@ -53,8 +53,9 @@ Cuando un agente IA (como Claude Desktop, Cursor o Claude Code) ejecuta una herr
 
 Para mantener retrocompatibilidad con integraciones previas de Evolution API v2:
 
-| Término Legacy (v1.x) | Concepto Gateway (v2.0) | Mapeo Interno |
+| Término Legacy (v1.x) | Concepto Gateway (v2.0) | Mapeo / Funcionamiento |
 |:---|:---|:---|
 | `instance` | `channel` | Si se pasa el parámetro legacy `instance`, el sistema busca un canal cuyo nombre o `instanceId` coincida. |
-| `EVOLUTION_DEFAULT_INSTANCE` | `is_default` en SQLite | En el modo `server`, el canal por defecto se administra dinámicamente en el panel web o base de datos. En modo `stdio`, se utiliza la variable de entorno. |
+| `EVOLUTION_DEFAULT_INSTANCE` | `is_default` en SQLite | Administrado **dinámicamente** desde el panel web. No requiere variables de entorno. |
+| `EVOLUTION_BASE_URL` / `API_KEY` | Registrado en `/panel` | Se crea y actualiza dinámicamente en tiempo de ejecución. Permite múltiples proveedores simultáneos. |
 | `EvolutionClient` directo | `IWhatsAppProvider` | El adaptador `EvolutionAdapter` traduce las peticiones de dominio agnósticas al formato que espera Evolution API v2. |
