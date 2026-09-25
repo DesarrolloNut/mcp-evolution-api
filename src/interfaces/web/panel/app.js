@@ -467,7 +467,10 @@
       qrStatusBadge.textContent = 'Regenerando...';
 
       try {
-        await api(`/api/admin/channels/${activeQrChannelId}/session/start`, { method: 'POST' });
+        await api(`/api/admin/channels/${activeQrChannelId}/session/start`, {
+          method: 'POST',
+          body: JSON.stringify({ forceNew: true }),
+        });
         stopQrPolling();
         await fetchQrStatus(activeQrChannelId);
         qrPollInterval = setInterval(() => {

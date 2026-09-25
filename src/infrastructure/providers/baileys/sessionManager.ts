@@ -3,6 +3,7 @@ import makeWASocket, {
   DisconnectReason,
   WASocket,
   fetchLatestBaileysVersion,
+  Browsers,
 } from '@whiskeysockets/baileys';
 import pino from 'pino';
 import QRCode from 'qrcode';
@@ -23,11 +24,15 @@ export interface SessionInstance {
   reconnectAttempts: number;
 }
 
+export type OnConnectedHandler = (channelId: string, userPhone: string) => Promise<void>;
+
 export class BaileysSessionManager {
   private static instance: BaileysSessionManager;
   private readonly sessions = new Map<string, SessionInstance>();
+  private readonly reconnectTimers = new Map<string, NodeJS.Timeout>();
   private readonly baseSessionPath: string;
   private readonly logger = pino({ level: 'warn' });
+  private onConnectedCallback?: OnConnectedHandler;
 
   constructor(baseSessionPath: string = './data/sessions') {
     this.baseSessionPath = path.resolve(baseSessionPath);
@@ -41,6 +46,10 @@ export class BaileysSessionManager {
       BaileysSessionManager.instance = new BaileysSessionManager(baseSessionPath);
     }
     return BaileysSessionManager.instance;
+  }
+
+  public setOnConnected(handler: OnConnectedHandler): void {
+    this.onConnectedCallback = handler;
   }
 
   public getSession(channelId: string): SessionInstance | undefined {
@@ -74,37 +83,77 @@ export class BaileysSessionManager {
     };
   }
 
-  public async startSession(channelId: string): Promise<SessionInstance> {
-    const existing = this.sessions.get(channelId);
-    if (existing && (existing.status === 'connected' || existing.status === 'connecting' || existing.status === 'qr_ready')) {
-      return existing;
+  public async startSession(channelId: string, options: { forceNew?: boolean } = {}): Promise<SessionInstance> {
+    // Clear any pending reconnection timer for this channel
+    const timer = this.reconnectTimers.get(channelId);
+    if (timer) {
+      clearTimeout(timer);
+      this.reconnectTimers.delete(channelId);
     }
 
+    if (options.forceNew) {
+      await this.cleanupSession(channelId, true);
+    } else {
+      const existing = this.sessions.get(channelId);
+      if (existing && existing.status === 'connected' && existing.socket) {
+        return existing;
+      }
+      if (existing && existing.status === 'qr_ready' && existing.qrDataUrl) {
+        return existing;
+      }
+      // If there's an existing stale socket, close it cleanly
+      if (existing?.socket) {
+        try {
+          existing.socket.ev.removeAllListeners('connection.update');
+          existing.socket.ev.removeAllListeners('creds.update');
+          existing.socket.ws?.close();
+        } catch {}
+        existing.socket = null;
+      }
+    }
+
+    return this.initSocket(channelId);
+  }
+
+  private async initSocket(channelId: string): Promise<SessionInstance> {
     const sessionDir = path.join(this.baseSessionPath, channelId);
     if (!fs.existsSync(sessionDir)) {
       fs.mkdirSync(sessionDir, { recursive: true });
     }
 
-    const sessionState: SessionInstance = {
-      channelId,
-      socket: null,
-      status: 'connecting',
-      qrRaw: null,
-      qrDataUrl: null,
-      userPhone: null,
-      reconnectAttempts: 0,
-    };
-    this.sessions.set(channelId, sessionState);
+    let sessionState = this.sessions.get(channelId);
+    if (!sessionState) {
+      sessionState = {
+        channelId,
+        socket: null,
+        status: 'connecting',
+        qrRaw: null,
+        qrDataUrl: null,
+        userPhone: null,
+        reconnectAttempts: 0,
+      };
+      this.sessions.set(channelId, sessionState);
+    } else {
+      sessionState.status = 'connecting';
+    }
 
     const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
-    const { version } = await fetchLatestBaileysVersion();
+    let version: [number, number, number] | undefined;
+    try {
+      const v = await fetchLatestBaileysVersion();
+      version = v.version;
+    } catch {
+      // Fallback version if offline
+    }
 
     const socket = makeWASocket({
       version,
       auth: state,
       logger: this.logger,
       printQRInTerminal: false,
-      browser: ['MCP WhatsApp Gateway', 'Chrome', '1.0.0'],
+      browser: Browsers.ubuntu('Chrome'),
+      syncFullHistory: false,
+      generateHighQualityLinkPreview: true,
     });
 
     sessionState.socket = socket;
@@ -133,21 +182,29 @@ export class BaileysSessionManager {
         const userJid = socket.user?.id || '';
         const phone = userJid.split(':')[0] || userJid.split('@')[0];
         sessionState.userPhone = phone;
-        this.logger.info(`[Baileys] Channel ${channelId} connected as ${phone}`);
+        this.logger.info(`[Baileys] Channel ${channelId} connected successfully as ${phone}`);
+
+        if (this.onConnectedCallback) {
+          this.onConnectedCallback(channelId, phone).catch((err) => {
+            this.logger.error({ err }, `Error executing onConnected callback for ${channelId}`);
+          });
+        }
       }
 
       if (connection === 'close') {
         const boomError = lastDisconnect?.error as Boom | undefined;
         const statusCode = boomError?.output?.statusCode;
-        const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+        const isLoggedOut = statusCode === DisconnectReason.loggedOut;
+        const shouldReconnect = !isLoggedOut;
 
         sessionState.lastError = boomError?.message;
 
-        if (statusCode === DisconnectReason.loggedOut) {
+        if (isLoggedOut) {
           sessionState.status = 'disconnected';
           sessionState.socket = null;
           sessionState.userPhone = null;
-          // Wipe stored session credentials
+          sessionState.qrDataUrl = null;
+          sessionState.qrRaw = null;
           try {
             fs.rmSync(sessionDir, { recursive: true, force: true });
           } catch (e) {
@@ -156,14 +213,27 @@ export class BaileysSessionManager {
           this.logger.warn(`[Baileys] Channel ${channelId} logged out from phone.`);
         } else if (shouldReconnect) {
           sessionState.status = 'connecting';
-          const delay = Math.min(1000 * Math.pow(2, sessionState.reconnectAttempts), 15000);
-          sessionState.reconnectAttempts++;
-          this.logger.info(`[Baileys] Channel ${channelId} reconnecting in ${delay}ms...`);
-          setTimeout(() => {
-            this.startSession(channelId).catch((err) => {
-              this.logger.error({ err }, `Failed to reconnect channel ${channelId}`);
+          const isRestart = statusCode === DisconnectReason.restartRequired;
+          const delay = isRestart ? 150 : Math.min(1000 * Math.pow(2, sessionState.reconnectAttempts), 10000);
+          if (!isRestart) {
+            sessionState.reconnectAttempts++;
+          }
+          this.logger.info(
+            `[Baileys] Channel ${channelId} socket closed (code: ${statusCode}). Re-initializing socket in ${delay}ms...`
+          );
+
+          if (this.reconnectTimers.has(channelId)) {
+            clearTimeout(this.reconnectTimers.get(channelId));
+          }
+
+          const reconnectTimer = setTimeout(() => {
+            this.reconnectTimers.delete(channelId);
+            this.initSocket(channelId).catch((err) => {
+              this.logger.error({ err }, `Failed to reconnect socket for channel ${channelId}`);
             });
           }, delay);
+
+          this.reconnectTimers.set(channelId, reconnectTimer);
         } else {
           sessionState.status = 'disconnected';
           sessionState.socket = null;
@@ -172,6 +242,39 @@ export class BaileysSessionManager {
     });
 
     return sessionState;
+  }
+
+  public async cleanupSession(channelId: string, wipeCredentials = false): Promise<void> {
+    if (this.reconnectTimers.has(channelId)) {
+      clearTimeout(this.reconnectTimers.get(channelId));
+      this.reconnectTimers.delete(channelId);
+    }
+
+    const session = this.sessions.get(channelId);
+    if (session?.socket) {
+      try {
+        session.socket.ev.removeAllListeners('connection.update');
+        session.socket.ev.removeAllListeners('creds.update');
+        session.socket.ws?.close();
+      } catch {}
+      session.socket = null;
+    }
+
+    if (wipeCredentials) {
+      const sessionDir = path.join(this.baseSessionPath, channelId);
+      try {
+        if (fs.existsSync(sessionDir)) {
+          fs.rmSync(sessionDir, { recursive: true, force: true });
+        }
+      } catch {}
+    }
+
+    if (session) {
+      session.status = 'disconnected';
+      session.qrDataUrl = null;
+      session.qrRaw = null;
+      session.reconnectAttempts = 0;
+    }
   }
 
   public async logoutSession(channelId: string): Promise<void> {
@@ -184,13 +287,7 @@ export class BaileysSessionManager {
       }
     }
 
-    const sessionDir = path.join(this.baseSessionPath, channelId);
-    try {
-      fs.rmSync(sessionDir, { recursive: true, force: true });
-    } catch {
-      // Ignore if dir doesn't exist
-    }
-
+    await this.cleanupSession(channelId, true);
     this.sessions.delete(channelId);
   }
 
@@ -214,3 +311,4 @@ export class BaileysSessionManager {
     }
   }
 }
+

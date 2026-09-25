@@ -36,8 +36,9 @@ export function createSessionRouter(
     try {
       const channelId = String(req.params.id);
       await resolveBaileysChannel(channelId);
+      const forceNew = Boolean(req.body?.forceNew);
 
-      const session = await sessionManager.startSession(channelId);
+      const session = await sessionManager.startSession(channelId, { forceNew });
       res.json({
         success: true,
         channelId,
