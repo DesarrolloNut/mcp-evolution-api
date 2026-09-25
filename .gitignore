@@ -4,3 +4,11 @@ dist/
 .env
 .env.local
 .DS_Store
+
+# Data and SQLite databases
+data/*
+!data/.gitkeep
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
