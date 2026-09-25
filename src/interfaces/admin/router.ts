@@ -7,6 +7,7 @@ import { createAdminAuthMiddleware } from './middleware/auth.js';
 import { createAuthRouter } from './routes/auth.js';
 import { createProvidersRouter } from './routes/providers.js';
 import { createChannelsRouter } from './routes/channels.js';
+import { createSessionRouter } from './routes/session.js';
 import { createDashboardRouter } from './routes/dashboard.js';
 
 export interface AdminRouterDependencies {
@@ -26,6 +27,7 @@ export function createAdminRouter(deps: AdminRouterDependencies): Router {
   // Protected administration endpoints
   router.use('/providers', authMiddleware, createProvidersRouter(deps.providerRepo, deps.providerFactory));
   router.use('/channels', authMiddleware, createChannelsRouter(deps.channelRepo, deps.providerRepo));
+  router.use('/channels', authMiddleware, createSessionRouter(deps.channelRepo, deps.providerRepo));
   router.use('/dashboard', authMiddleware, createDashboardRouter(deps.providerRepo, deps.channelRepo));
 
   return router;
