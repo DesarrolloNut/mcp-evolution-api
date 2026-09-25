@@ -276,6 +276,9 @@
   // Data Loading: Channels
   async function loadChannels() {
     try {
+      if (!cachedProviders || cachedProviders.length === 0) {
+        cachedProviders = await api('/api/admin/providers');
+      }
       const channels = await api('/api/admin/channels');
       renderChannels(channels);
     } catch (err) {
@@ -293,7 +296,7 @@
       .map((c) => {
         const prov = cachedProviders.find((p) => p.id === c.providerId);
         const provName = prov ? prov.name : c.providerId;
-        const isBaileys = prov && prov.type === 'baileys';
+        const isBaileys = prov ? prov.type === 'baileys' : false;
 
         return `
         <tr>
@@ -309,22 +312,22 @@
             }
           </td>
           <td>
-            <div class="dropdown">
-              <button class="btn-dropdown-trigger" onclick="window.toggleActionMenu(event, '${c.id}')" title="Acciones de línea">⋮</button>
+            <div class="dropdown" id="dropdown-wrapper-${c.id}">
+              <button type="button" class="btn-dropdown-trigger" onclick="window.toggleActionMenu(event, '${c.id}')" title="Acciones de línea">⋮</button>
               <div class="dropdown-menu hidden" id="dropdown-menu-${c.id}">
-                <button class="dropdown-item" onclick="window.openSendMessageModal('${escapeHtml(c.name)}', '${escapeHtml(c.phoneNumber || '')}')">
+                <button type="button" class="dropdown-item" onclick="window.openSendMessageModal('${escapeHtml(c.name)}', '${escapeHtml(c.phoneNumber || '')}')">
                   💬 Enviar Mensaje
                 </button>
                 ${
                   isBaileys
-                    ? `<button class="dropdown-item" onclick="window.openQrModal('${c.id}', '${escapeHtml(c.name)}')">
+                    ? `<button type="button" class="dropdown-item" onclick="window.openQrModal('${c.id}', '${escapeHtml(c.name)}')">
                         📱 Vincular / Estado QR
                       </button>`
                     : ''
                 }
                 ${
                   !c.isDefault
-                    ? `<button class="dropdown-item" onclick="window.setDefaultChannel('${c.id}')">
+                    ? `<button type="button" class="dropdown-item" onclick="window.setDefaultChannel('${c.id}')">
                         ★ Hacer Predeterminada
                       </button>`
                     : ''
@@ -332,7 +335,7 @@
                 <div class="dropdown-divider"></div>
                 ${
                   c.isActive
-                    ? `<button class="dropdown-item danger" onclick="window.deleteChannel('${c.id}')">
+                    ? `<button type="button" class="dropdown-item danger" onclick="window.deleteChannel('${c.id}')">
                         🗑️ Desactivar Línea
                       </button>`
                     : `<span class="dropdown-item text-muted">Línea Inactiva</span>`
@@ -358,24 +361,32 @@
   function closeAllDropdowns() {
     document.querySelectorAll('.dropdown-menu').forEach((m) => m.classList.add('hidden'));
     document.querySelectorAll('.btn-dropdown-trigger').forEach((b) => b.classList.remove('active'));
+    document.querySelectorAll('.dropdown').forEach((d) => d.classList.remove('active'));
   }
 
   window.toggleActionMenu = (e, channelId) => {
-    e.stopPropagation();
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     const menu = document.getElementById(`dropdown-menu-${channelId}`);
-    const trigger = e.currentTarget;
-    const isHidden = menu.classList.contains('hidden');
+    const wrapper = document.getElementById(`dropdown-wrapper-${channelId}`);
+    const trigger = e ? e.currentTarget : (wrapper ? wrapper.querySelector('.btn-dropdown-trigger') : null);
+    const isHidden = menu ? menu.classList.contains('hidden') : false;
 
     closeAllDropdowns();
 
-    if (isHidden) {
+    if (menu && isHidden) {
       menu.classList.remove('hidden');
-      trigger.classList.add('active');
+      if (trigger) trigger.classList.add('active');
+      if (wrapper) wrapper.classList.add('active');
     }
   };
 
-  document.addEventListener('click', () => {
-    closeAllDropdowns();
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.dropdown')) {
+      closeAllDropdowns();
+    }
   });
 
   // Send Message Modal Handling

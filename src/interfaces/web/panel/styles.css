@@ -251,12 +251,15 @@ body {
 /* Tables */
 .table-container {
   padding: 0;
-  overflow: hidden;
+  overflow: visible;
+  position: relative;
+  border-radius: var(--radius-lg);
 }
 
 .data-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   text-align: left;
 }
 
@@ -271,10 +274,31 @@ body {
   border-bottom: 1px solid var(--border-subtle);
 }
 
+.data-table th:first-child {
+  border-top-left-radius: var(--radius-lg);
+}
+
+.data-table th:last-child {
+  border-top-right-radius: var(--radius-lg);
+}
+
+.data-table tr:last-child td:first-child {
+  border-bottom-left-radius: var(--radius-lg);
+}
+
+.data-table tr:last-child td:last-child {
+  border-bottom-right-radius: var(--radius-lg);
+}
+
 .data-table td {
   padding: 1rem 1.25rem;
   border-bottom: 1px solid var(--border-subtle);
   font-size: 0.95rem;
+  position: relative;
+}
+
+.data-table tr:last-child td {
+  border-bottom: none;
 }
 
 .data-table tr:hover td {
@@ -499,16 +523,17 @@ small.text-muted {
   color: var(--text-main);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   font-weight: 700;
   line-height: 1;
   transition: var(--transition);
+  user-select: none;
 }
 
 .btn-dropdown-trigger:hover,
@@ -516,6 +541,7 @@ small.text-muted {
   background: var(--bg-card-hover);
   border-color: var(--primary-green);
   color: var(--primary-green);
+  box-shadow: 0 0 10px rgba(37, 211, 102, 0.2);
 }
 
 .dropdown-menu {
@@ -525,13 +551,17 @@ small.text-muted {
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
-  min-width: 200px;
-  z-index: 500;
+  box-shadow: 0 14px 35px rgba(0, 0, 0, 0.8), 0 0 1px rgba(255, 255, 255, 0.2);
+  min-width: 220px;
+  z-index: 1000;
   display: flex;
   flex-direction: column;
   padding: 0.4rem 0;
   animation: dropdownFadeIn 0.15s ease-out;
+}
+
+.dropdown-menu.hidden {
+  display: none !important;
 }
 
 @keyframes dropdownFadeIn {
@@ -543,20 +573,21 @@ small.text-muted {
   display: flex;
   align-items: center;
   gap: 0.65rem;
-  padding: 0.65rem 1rem;
+  padding: 0.7rem 1.1rem;
   border: none;
   background: none;
   width: 100%;
   color: var(--text-main);
-  font-size: 0.85rem;
+  font-size: 0.88rem;
   font-weight: 500;
   text-align: left;
   cursor: pointer;
+  white-space: nowrap;
   transition: var(--transition);
 }
 
 .dropdown-item:hover {
-  background: var(--bg-card);
+  background: var(--bg-card-hover);
   color: var(--primary-green);
 }
 
