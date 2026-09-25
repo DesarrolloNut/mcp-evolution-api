@@ -1,6 +1,8 @@
 (function () {
   let token = localStorage.getItem('mcp_admin_token') || null;
   let cachedProviders = [];
+  let qrPollInterval = null;
+  let activeQrChannelId = null;
 
   // DOM Elements
   const loginView = document.getElementById('login-view');
@@ -17,15 +19,35 @@
   // Modals
   const providerModal = document.getElementById('provider-modal');
   const channelModal = document.getElementById('channel-modal');
+  const qrModal = document.getElementById('qr-modal');
   const openProviderModalBtn = document.getElementById('open-provider-modal-btn');
   const openChannelModalBtn = document.getElementById('open-channel-modal-btn');
   const closeButtons = document.querySelectorAll('.close-modal');
 
-  // Forms
+  // Forms & Inputs
   const providerForm = document.getElementById('provider-form');
   const channelForm = document.getElementById('channel-form');
+  const providerTypeSelect = document.getElementById('p-type');
+  const providerExternalFields = document.getElementById('p-external-fields');
+  const providerBaileysNote = document.getElementById('p-baileys-note');
+  const providerUrlInput = document.getElementById('p-url');
+  const providerKeyInput = document.getElementById('p-key');
+  const channelInstanceGroup = document.getElementById('c-instance-group');
   const providerModalError = document.getElementById('provider-modal-error');
   const channelModalError = document.getElementById('channel-modal-error');
+
+  // QR Modal Elements
+  const qrModalTitle = document.getElementById('qr-modal-title');
+  const qrModalSubtitle = document.getElementById('qr-modal-subtitle');
+  const qrStatusBadge = document.getElementById('qr-status-badge');
+  const qrLoader = document.getElementById('qr-loader');
+  const qrLoaderText = document.getElementById('qr-loader-text');
+  const qrImageWrapper = document.getElementById('qr-image-wrapper');
+  const qrImage = document.getElementById('qr-image');
+  const qrSuccessCard = document.getElementById('qr-success-card');
+  const qrConnectedPhone = document.getElementById('qr-connected-phone');
+  const qrLogoutActionBtn = document.getElementById('qr-logout-action-btn');
+  const qrRetryActionBtn = document.getElementById('qr-retry-action-btn');
 
   // Tables & Stats
   const providersTableBody = document.getElementById('providers-table-body');
@@ -86,6 +108,7 @@
 
   function handleLogout() {
     token = null;
+    stopQrPolling();
     localStorage.removeItem('mcp_admin_token');
     localStorage.removeItem('mcp_admin_user');
     appView.classList.add('hidden');
@@ -125,6 +148,7 @@
   openProviderModalBtn.addEventListener('click', () => {
     providerForm.reset();
     providerModalError.classList.add('hidden');
+    updateProviderFormVisibility();
     providerModal.classList.remove('hidden');
   });
 
@@ -132,16 +156,51 @@
     channelForm.reset();
     channelModalError.classList.add('hidden');
     populateProviderSelect();
+    updateChannelFormVisibility();
     channelModal.classList.remove('hidden');
   });
 
+  function closeAllModals() {
+    stopQrPolling();
+    providerModal.classList.add('hidden');
+    channelModal.classList.add('hidden');
+    qrModal.classList.add('hidden');
+  }
+
   closeButtons.forEach((btn) => {
-    btn.addEventListener('click', () => {
-      providerModal.classList.add('hidden');
-      channelModal.classList.remove('hidden');
-      channelModal.classList.add('hidden');
-    });
+    btn.addEventListener('click', closeAllModals);
   });
+
+  // Provider Type Selector Toggle
+  function updateProviderFormVisibility() {
+    const selectedType = providerTypeSelect.value;
+    if (selectedType === 'baileys') {
+      providerExternalFields.classList.add('hidden');
+      providerBaileysNote.classList.remove('hidden');
+      providerUrlInput.removeAttribute('required');
+      providerKeyInput.removeAttribute('required');
+    } else {
+      providerExternalFields.classList.remove('hidden');
+      providerBaileysNote.classList.add('hidden');
+      providerUrlInput.setAttribute('required', 'required');
+      providerKeyInput.setAttribute('required', 'required');
+    }
+  }
+
+  providerTypeSelect.addEventListener('change', updateProviderFormVisibility);
+
+  // Channel Provider Selector Toggle
+  function updateChannelFormVisibility() {
+    const provId = channelProviderSelect.value;
+    const prov = cachedProviders.find((p) => p.id === provId);
+    if (prov && prov.type === 'baileys') {
+      if (channelInstanceGroup) channelInstanceGroup.classList.add('hidden');
+    } else {
+      if (channelInstanceGroup) channelInstanceGroup.classList.remove('hidden');
+    }
+  }
+
+  channelProviderSelect.addEventListener('change', updateChannelFormVisibility);
 
   // Data Loading: Dashboard
   async function loadDashboard() {
@@ -187,8 +246,8 @@
         (p) => `
         <tr>
           <td><strong>${escapeHtml(p.name)}</strong></td>
-          <td><span class="badge badge-muted">${escapeHtml(p.type)}</span></td>
-          <td><code>${escapeHtml(p.baseUrl)}</code></td>
+          <td><span class="badge ${p.type === 'baileys' ? 'badge-blue' : 'badge-muted'}">${escapeHtml(p.type)}</span></td>
+          <td><code>${p.type === 'baileys' ? 'embebido://whatsapp-web' : escapeHtml(p.baseUrl)}</code></td>
           <td><span class="badge ${p.isActive ? 'badge-green' : 'badge-muted'}">${p.isActive ? 'Activo' : 'Inactivo'}</span></td>
           <td>
             <button class="btn btn-secondary btn-sm" onclick="window.testProvider('${p.id}')">⚡ Probar</button>
@@ -220,13 +279,14 @@
       .map((c) => {
         const prov = cachedProviders.find((p) => p.id === c.providerId);
         const provName = prov ? prov.name : c.providerId;
+        const isBaileys = prov && prov.type === 'baileys';
 
         return `
         <tr>
           <td><strong>${escapeHtml(c.name)}</strong></td>
-          <td>${c.phoneNumber ? escapeHtml(c.phoneNumber) : '<span class="text-muted">—</span>'}</td>
-          <td><span class="badge badge-muted">${escapeHtml(provName)}</span></td>
-          <td><code>${c.instanceId ? escapeHtml(c.instanceId) : '<span class="text-muted">—</span>'}</code></td>
+          <td>${c.phoneNumber ? `<code>${escapeHtml(c.phoneNumber)}</code>` : '<span class="text-muted">—</span>'}</td>
+          <td><span class="badge ${isBaileys ? 'badge-blue' : 'badge-muted'}">${escapeHtml(provName)}</span></td>
+          <td><code>${c.instanceId ? escapeHtml(c.instanceId) : (isBaileys ? '<span class="text-green">directo</span>' : '<span class="text-muted">—</span>')}</code></td>
           <td>
             ${
               c.isDefault
@@ -235,6 +295,7 @@
             }
           </td>
           <td>
+            ${isBaileys ? `<button class="btn btn-secondary btn-sm" onclick="window.openQrModal('${c.id}', '${escapeHtml(c.name)}')">📱 Vincular QR</button> ` : ''}
             ${c.isActive ? `<button class="btn btn-danger btn-sm" onclick="window.deleteChannel('${c.id}')">Desactivar</button>` : '<span class="text-muted">Inactivo</span>'}
           </td>
         </tr>
@@ -247,7 +308,7 @@
     channelProviderSelect.innerHTML = '<option value="">Seleccione un proveedor...</option>' +
       cachedProviders
         .filter((p) => p.isActive)
-        .map((p) => `<option value="${p.id}">${escapeHtml(p.name)} (${p.type})</option>`)
+        .map((p) => `<option value="${p.id}">${escapeHtml(p.name)} (${p.type === 'baileys' ? 'Baileys Embebido' : p.type})</option>`)
         .join('');
   }
 
@@ -257,9 +318,14 @@
     providerModalError.classList.add('hidden');
 
     const name = document.getElementById('p-name').value.trim();
-    const type = document.getElementById('p-type').value;
-    const baseUrl = document.getElementById('p-url').value.trim();
-    const apiKey = document.getElementById('p-key').value.trim();
+    const type = providerTypeSelect.value;
+    let baseUrl = providerUrlInput.value.trim();
+    let apiKey = providerKeyInput.value.trim();
+
+    if (type === 'baileys') {
+      if (!baseUrl) baseUrl = 'embedded://whatsapp-web';
+      if (!apiKey) apiKey = 'embedded-session-auth';
+    }
 
     try {
       await api('/api/admin/providers', {
@@ -281,7 +347,7 @@
     channelModalError.classList.add('hidden');
 
     const name = document.getElementById('c-name').value.trim();
-    const providerId = document.getElementById('c-provider').value;
+    const providerId = channelProviderSelect.value;
     const phoneNumber = document.getElementById('c-phone').value.trim();
     const instanceId = document.getElementById('c-instance').value.trim();
     const isDefault = document.getElementById('c-default').checked;
@@ -299,6 +365,143 @@
       channelModalError.classList.remove('hidden');
     }
   });
+
+  // QR Modal & Session Lifecycle
+  function stopQrPolling() {
+    if (qrPollInterval) {
+      clearInterval(qrPollInterval);
+      qrPollInterval = null;
+    }
+  }
+
+  window.openQrModal = async (channelId, channelName) => {
+    activeQrChannelId = channelId;
+    stopQrPolling();
+
+    qrModalTitle.textContent = '📱 Vincular WhatsApp Web';
+    qrModalSubtitle.textContent = `Canal: ${channelName}`;
+    qrStatusBadge.className = 'badge badge-muted badge-pulse';
+    qrStatusBadge.textContent = 'Iniciando sesión...';
+
+    qrLoader.classList.remove('hidden');
+    qrLoaderText.textContent = 'Iniciando socket y generando código QR...';
+    qrImageWrapper.classList.add('hidden');
+    qrSuccessCard.classList.add('hidden');
+    qrLogoutActionBtn.classList.add('hidden');
+
+    qrModal.classList.remove('hidden');
+
+    try {
+      // Trigger session start
+      await api(`/api/admin/channels/${channelId}/session/start`, { method: 'POST' });
+    } catch (err) {
+      console.warn('Session start notice:', err.message);
+    }
+
+    // Immediately poll and start loop
+    await fetchQrStatus(channelId);
+    qrPollInterval = setInterval(() => {
+      fetchQrStatus(channelId);
+    }, 2500);
+  };
+
+  async function fetchQrStatus(channelId) {
+    if (activeQrChannelId !== channelId) return;
+
+    try {
+      const res = await api(`/api/admin/channels/${channelId}/session/qr`);
+
+      if (res.status === 'connected' || res.isConnected) {
+        qrStatusBadge.className = 'badge badge-green';
+        qrStatusBadge.textContent = '✅ Conectado y Listo';
+        qrLoader.classList.add('hidden');
+        qrImageWrapper.classList.add('hidden');
+        qrSuccessCard.classList.remove('hidden');
+        qrConnectedPhone.textContent = res.userPhone ? `+${res.userPhone}` : 'Conexión activa';
+        qrLogoutActionBtn.classList.remove('hidden');
+        stopQrPolling();
+
+        // Refresh main lists
+        loadChannels();
+        loadDashboard();
+      } else if (res.status === 'qr_ready' && res.qrDataUrl) {
+        qrStatusBadge.className = 'badge badge-yellow badge-pulse';
+        qrStatusBadge.textContent = 'Esperando escaneo con tu teléfono...';
+        qrLoader.classList.add('hidden');
+        qrSuccessCard.classList.add('hidden');
+        qrImage.src = res.qrDataUrl;
+        qrImageWrapper.classList.remove('hidden');
+        qrLogoutActionBtn.classList.add('hidden');
+      } else if (res.status === 'connecting') {
+        qrStatusBadge.className = 'badge badge-blue badge-pulse';
+        qrStatusBadge.textContent = 'Autenticando vinculación...';
+        qrLoader.classList.remove('hidden');
+        qrLoaderText.textContent = 'Vinculando dispositivo con WhatsApp...';
+        qrImageWrapper.classList.add('hidden');
+        qrSuccessCard.classList.add('hidden');
+      } else if (res.status === 'disconnected') {
+        qrStatusBadge.className = 'badge badge-muted';
+        qrStatusBadge.textContent = 'Sesión desconectada';
+        qrLoader.classList.remove('hidden');
+        qrLoaderText.textContent = 'Sesión cerrada o desconectada. Pulsa "Regenerar QR" para vincular.';
+        qrImageWrapper.classList.add('hidden');
+        qrSuccessCard.classList.add('hidden');
+        qrLogoutActionBtn.classList.add('hidden');
+      }
+    } catch (err) {
+      qrStatusBadge.className = 'badge badge-muted';
+      qrStatusBadge.textContent = 'Error consultando estado';
+      qrLoaderText.textContent = `Error: ${err.message}`;
+    }
+  }
+
+  // Retry / Regenerate QR Button
+  if (qrRetryActionBtn) {
+    qrRetryActionBtn.addEventListener('click', async () => {
+      if (!activeQrChannelId) return;
+      qrLoader.classList.remove('hidden');
+      qrLoaderText.textContent = 'Reiniciando sesión y generando nuevo código QR...';
+      qrImageWrapper.classList.add('hidden');
+      qrSuccessCard.classList.add('hidden');
+      qrStatusBadge.className = 'badge badge-muted badge-pulse';
+      qrStatusBadge.textContent = 'Regenerando...';
+
+      try {
+        await api(`/api/admin/channels/${activeQrChannelId}/session/start`, { method: 'POST' });
+        stopQrPolling();
+        await fetchQrStatus(activeQrChannelId);
+        qrPollInterval = setInterval(() => {
+          fetchQrStatus(activeQrChannelId);
+        }, 2500);
+      } catch (err) {
+        alert(`Error al reiniciar sesión: ${err.message}`);
+      }
+    });
+  }
+
+  // Disconnect / Logout Action Button
+  if (qrLogoutActionBtn) {
+    qrLogoutActionBtn.addEventListener('click', async () => {
+      if (!activeQrChannelId) return;
+      if (!confirm('¿Estás seguro de desconectar y cerrar la sesión de WhatsApp para esta línea?')) return;
+
+      try {
+        await api(`/api/admin/channels/${activeQrChannelId}/session/logout`, { method: 'POST' });
+        alert('Sesión de WhatsApp cerrada exitosamente.');
+        stopQrPolling();
+        qrSuccessCard.classList.add('hidden');
+        qrLogoutActionBtn.classList.add('hidden');
+        qrLoader.classList.remove('hidden');
+        qrLoaderText.textContent = 'Sesión cerrada. Pulsa "Regenerar QR" para volver a vincular.';
+        qrStatusBadge.className = 'badge badge-muted';
+        qrStatusBadge.textContent = 'Desconectado';
+        loadChannels();
+        loadDashboard();
+      } catch (err) {
+        alert(`Error al cerrar sesión: ${err.message}`);
+      }
+    });
+  }
 
   // Global Actions
   window.testProvider = async (id) => {
@@ -359,3 +562,4 @@
     handleLogout();
   }
 })();
+

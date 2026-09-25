@@ -177,18 +177,24 @@
           <div class="form-group">
             <label>Tipo de Proveedor</label>
             <select id="p-type" required>
+              <option value="baileys">WhatsApp Web Directo (Baileys / Embebido)</option>
               <option value="evolution">Evolution API v2</option>
               <option value="meta">Meta Cloud API (Vista previa)</option>
               <option value="twilio">Twilio (Vista previa)</option>
             </select>
           </div>
-          <div class="form-group">
-            <label>URL Base</label>
-            <input type="url" id="p-url" placeholder="https://mi-evolution.ejemplo.com" required>
+          <div id="p-external-fields">
+            <div class="form-group">
+              <label>URL Base</label>
+              <input type="url" id="p-url" placeholder="https://mi-evolution.ejemplo.com">
+            </div>
+            <div class="form-group">
+              <label>API Key / Token</label>
+              <input type="password" id="p-key" placeholder="••••••••">
+            </div>
           </div>
-          <div class="form-group">
-            <label>API Key / Token</label>
-            <input type="password" id="p-key" placeholder="••••••••" required>
+          <div id="p-baileys-note" class="alert info">
+            💡 <strong>Proveedor Embebido:</strong> No requiere URL ni API Key externa. La autenticación y el socket de WhatsApp Web corren directamente dentro de este servidor.
           </div>
           <div id="provider-modal-error" class="alert error hidden"></div>
         </div>
@@ -220,10 +226,10 @@
             </select>
           </div>
           <div class="form-group">
-            <label>Número Telefónico (E.164)</label>
+            <label>Número Telefónico (E.164 - Opcional para Baileys)</label>
             <input type="text" id="c-phone" placeholder="+18095551234">
           </div>
-          <div class="form-group">
+          <div class="form-group" id="c-instance-group">
             <label>ID / Nombre de Instancia (Evolution API)</label>
             <input type="text" id="c-instance" placeholder="instancia-ventas">
           </div>
@@ -239,6 +245,63 @@
           <button type="submit" class="btn btn-primary">Guardar Canal</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Modal QR WhatsApp Web Pairing -->
+  <div id="qr-modal" class="modal hidden">
+    <div class="modal-dialog qr-modal-dialog">
+      <div class="modal-header">
+        <div>
+          <h3 id="qr-modal-title">📱 Vincular WhatsApp Web</h3>
+          <p class="text-muted" id="qr-modal-subtitle">Canal: -</p>
+        </div>
+        <button class="close-modal" id="qr-close-btn">&times;</button>
+      </div>
+      <div class="modal-body text-center">
+        <!-- Status Header Badge -->
+        <div class="mb-3">
+          <span id="qr-status-badge" class="badge badge-muted">Iniciando sesión...</span>
+        </div>
+
+        <!-- QR Display Container -->
+        <div class="qr-container">
+          <!-- Spinner Loader -->
+          <div id="qr-loader" class="qr-loader">
+            <div class="spinner"></div>
+            <p class="text-muted mt-2" id="qr-loader-text">Generando código QR...</p>
+          </div>
+
+          <!-- White Canvas Card for Scanner -->
+          <div id="qr-image-wrapper" class="qr-image-wrapper hidden">
+            <img id="qr-image" src="" alt="WhatsApp Web QR Code" class="qr-image" />
+          </div>
+
+          <!-- Success Card -->
+          <div id="qr-success-card" class="qr-success-card hidden">
+            <div class="success-icon">✅</div>
+            <h4>¡WhatsApp Vinculado con Éxito!</h4>
+            <p class="text-muted mt-1">Línea conectada y lista para enviar y recibir mensajes.</p>
+            <div class="phone-display mt-2" id="qr-connected-phone"></div>
+          </div>
+        </div>
+
+        <!-- Step by Step Instructions -->
+        <div class="qr-instructions" id="qr-instructions">
+          <h5>Instrucciones de escaneo:</h5>
+          <ol>
+            <li>Abre <strong>WhatsApp</strong> en tu teléfono celular.</li>
+            <li>Toca <strong>Menú (⋮)</strong> en Android o <strong>Ajustes / Configuración</strong> en iPhone.</li>
+            <li>Toca <strong>Dispositivos vinculados</strong> y luego <strong>Vincular un dispositivo</strong>.</li>
+            <li>Apunta la cámara de tu teléfono hacia el código QR mostrado arriba.</li>
+          </ol>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-danger btn-sm hidden" id="qr-logout-action-btn">Cerrar Sesión / Desconectar</button>
+        <button type="button" class="btn btn-secondary btn-sm" id="qr-retry-action-btn">↻ Regenerar QR</button>
+        <button type="button" class="btn btn-secondary close-modal">Cerrar</button>
+      </div>
     </div>
   </div>
 
