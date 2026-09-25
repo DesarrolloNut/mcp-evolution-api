@@ -49,6 +49,42 @@ const migrations: Migration[] = [
       `);
     },
   },
+  {
+    name: '002_chats_and_messages',
+    up: (db: Database.Database) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS chats (
+          jid TEXT NOT NULL,
+          channel_id TEXT NOT NULL,
+          name TEXT,
+          unread_count INTEGER NOT NULL DEFAULT 0,
+          last_message_text TEXT,
+          last_message_timestamp INTEGER NOT NULL DEFAULT 0,
+          is_group INTEGER NOT NULL DEFAULT 0,
+          updated_at TEXT NOT NULL,
+          PRIMARY KEY (channel_id, jid)
+        );
+
+        CREATE TABLE IF NOT EXISTS messages (
+          id TEXT NOT NULL,
+          channel_id TEXT NOT NULL,
+          chat_jid TEXT NOT NULL,
+          sender_jid TEXT NOT NULL,
+          from_me INTEGER NOT NULL DEFAULT 0,
+          message_type TEXT NOT NULL,
+          text_content TEXT,
+          media_url TEXT,
+          status TEXT NOT NULL DEFAULT 'sent',
+          timestamp INTEGER NOT NULL,
+          raw_json TEXT,
+          PRIMARY KEY (channel_id, id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_messages_chat ON messages(channel_id, chat_jid, timestamp DESC);
+        CREATE INDEX IF NOT EXISTS idx_chats_updated ON chats(channel_id, last_message_timestamp DESC);
+      `);
+    },
+  },
 ];
 
 export function runMigrations(db: Database.Database): void {

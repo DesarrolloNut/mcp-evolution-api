@@ -25,7 +25,13 @@ async function runGatewaySmoke(): Promise<void> {
   // 2. Verify Repositories & Resolver
   const providerRepo = new SqliteProviderRepository(db, config.encryptionKey);
   const channelRepo = new SqliteChannelRepository(db);
-  const providerFactory = new ProviderFactory(config.encryptionKey);
+  const { SqliteMessageRepository } = await import('./infrastructure/database/repositories/messageRepo.js');
+  const messageRepo = new SqliteMessageRepository(db);
+  const { BaileysSessionManager } = await import('./infrastructure/providers/baileys/sessionManager.js');
+  const sessionManager = BaileysSessionManager.getInstance(undefined, messageRepo);
+  sessionManager.setMessageRepo(messageRepo);
+
+  const providerFactory = new ProviderFactory(config.encryptionKey, sessionManager);
   const resolver = new ChannelResolver(channelRepo, providerRepo, providerFactory);
 
   const providers = await providerRepo.findAll();
@@ -51,9 +57,7 @@ async function runGatewaySmoke(): Promise<void> {
     console.log(`✅ OpenAPI 3.1 Spec verified (${pathCount} paths documented).`);
   }
 
-  // 5. Verify Baileys Direct Provider & SessionManager
-  const { BaileysSessionManager } = await import('./infrastructure/providers/baileys/sessionManager.js');
-  const sessionManager = BaileysSessionManager.getInstance();
+  // 5. Verify Baileys Direct Provider, SessionManager & Message Persistence
   const mockBaileysStatus = sessionManager.getStatus('smoke-test-channel');
   console.log(`✅ Baileys Session Manager active (Initial status: ${mockBaileysStatus.status}, connected: ${mockBaileysStatus.isConnected})`);
 
@@ -71,6 +75,33 @@ async function runGatewaySmoke(): Promise<void> {
   const baileysAdapter = providerFactory.create(mockBaileysProvider);
   const connTest = await baileysAdapter.testConnection();
   console.log(`✅ Baileys Adapter testConnection: success=${connTest.success}, message="${connTest.message}"`);
+
+  // Verify chat & message persistence roundtrip
+  const testChannel = {
+    id: 'smoke-channel-1',
+    providerId: 'smoke-baileys',
+    name: 'Smoke Channel',
+    config: {},
+    isDefault: true,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  messageRepo.upsertMessage(testChannel.id, {
+    id: 'msg-smoke-123',
+    chatJid: '18292571290@s.whatsapp.net',
+    senderJid: '18292571290@s.whatsapp.net',
+    fromMe: false,
+    messageType: 'text',
+    textContent: 'Hola, este es un mensaje de prueba',
+    timestamp: Date.now(),
+  });
+  const foundChats = await baileysAdapter.findChats(testChannel);
+  const foundMessages = await baileysAdapter.findMessages({ chatId: '18292571290@s.whatsapp.net' }, testChannel);
+  if (foundChats.length === 0 || foundMessages.length === 0) {
+    throw new Error(`Expected at least 1 chat and 1 message in persistence test`);
+  }
+  console.log(`✅ Baileys Message & Chat persistence verified: found ${foundChats.length} chat(s) and ${foundMessages.length} message(s).`);
 
   // 6. Verify MCP HTTP Transport (Initialize, tools/list discovery, direct probes)
   const express = (await import('express')).default;

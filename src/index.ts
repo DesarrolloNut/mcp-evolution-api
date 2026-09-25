@@ -15,6 +15,7 @@ import { getDatabase } from './infrastructure/database/connection.js';
 import { runMigrations } from './infrastructure/database/migrations.js';
 import { SqliteProviderRepository } from './infrastructure/database/repositories/providerRepo.js';
 import { SqliteChannelRepository } from './infrastructure/database/repositories/channelRepo.js';
+import { SqliteMessageRepository } from './infrastructure/database/repositories/messageRepo.js';
 import { ProviderFactory } from './application/services/providerFactory.js';
 import { ChannelResolver } from './application/services/channelResolver.js';
 import { AdminAuthService } from './application/services/adminAuth.js';
@@ -49,7 +50,10 @@ async function startServerMode(): Promise<void> {
   // 2. Initialize Repositories and Domain Services
   const providerRepo = new SqliteProviderRepository(db, config.encryptionKey);
   const channelRepo = new SqliteChannelRepository(db);
-  const providerFactory = new ProviderFactory(config.encryptionKey);
+  const messageRepo = new SqliteMessageRepository(db);
+  const sessionManager = BaileysSessionManager.getInstance(undefined, messageRepo);
+  sessionManager.setMessageRepo(messageRepo);
+  const providerFactory = new ProviderFactory(config.encryptionKey, sessionManager);
   const channelResolver = new ChannelResolver(channelRepo, providerRepo, providerFactory);
   const adminAuthService = new AdminAuthService(config);
 
@@ -66,7 +70,6 @@ async function startServerMode(): Promise<void> {
         .map((c) => c.id);
 
       if (activeBaileysChannelIds.length > 0) {
-        const sessionManager = BaileysSessionManager.getInstance();
         await sessionManager.hydrateExistingSessions(activeBaileysChannelIds);
       }
     }
@@ -155,7 +158,10 @@ async function startStdioMode(): Promise<void> {
   // 2. Initialize Repositories and Domain Services
   const providerRepo = new SqliteProviderRepository(db, config.encryptionKey);
   const channelRepo = new SqliteChannelRepository(db);
-  const providerFactory = new ProviderFactory(config.encryptionKey);
+  const messageRepo = new SqliteMessageRepository(db);
+  const sessionManager = BaileysSessionManager.getInstance(undefined, messageRepo);
+  sessionManager.setMessageRepo(messageRepo);
+  const providerFactory = new ProviderFactory(config.encryptionKey, sessionManager);
   const channelResolver = new ChannelResolver(channelRepo, providerRepo, providerFactory);
 
   // 3. Hydrate active Baileys WhatsApp Web sessions if any

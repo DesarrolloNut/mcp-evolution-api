@@ -4,12 +4,14 @@ import makeWASocket, {
   WASocket,
   fetchLatestBaileysVersion,
   Browsers,
+  WAMessage,
 } from '@whiskeysockets/baileys';
 import pino from 'pino';
 import QRCode from 'qrcode';
 import fs from 'node:fs';
 import path from 'node:path';
 import { Boom } from '@hapi/boom';
+import { SqliteMessageRepository } from '../../database/repositories/messageRepo.js';
 
 export type SessionStatus = 'disconnected' | 'connecting' | 'qr_ready' | 'connected';
 
@@ -26,6 +28,50 @@ export interface SessionInstance {
 
 export type OnConnectedHandler = (channelId: string, userPhone: string) => Promise<void>;
 
+export function extractMessageText(msg: WAMessage): string | undefined {
+  let m = msg.message;
+  if (!m) return undefined;
+
+  if (m.ephemeralMessage?.message) m = m.ephemeralMessage.message;
+  if (m.viewOnceMessage?.message) m = m.viewOnceMessage.message;
+  if (m.viewOnceMessageV2?.message) m = m.viewOnceMessageV2.message;
+  if (m.documentWithCaptionMessage?.message) m = m.documentWithCaptionMessage.message;
+
+  return (
+    m.conversation ||
+    m.extendedTextMessage?.text ||
+    m.imageMessage?.caption ||
+    m.videoMessage?.caption ||
+    m.documentMessage?.caption ||
+    m.templateButtonReplyMessage?.selectedDisplayText ||
+    m.buttonsResponseMessage?.selectedDisplayText ||
+    m.listResponseMessage?.title ||
+    m.reactionMessage?.text ||
+    undefined
+  );
+}
+
+export function extractMessageType(msg: WAMessage): string {
+  let m = msg.message;
+  if (!m) return 'unknown';
+
+  if (m.ephemeralMessage?.message) m = m.ephemeralMessage.message;
+  if (m.viewOnceMessage?.message) m = m.viewOnceMessage.message;
+  if (m.viewOnceMessageV2?.message) m = m.viewOnceMessageV2.message;
+  if (m.documentWithCaptionMessage?.message) m = m.documentWithCaptionMessage.message;
+
+  if (m.conversation || m.extendedTextMessage) return 'text';
+  if (m.imageMessage) return 'image';
+  if (m.videoMessage) return 'video';
+  if (m.audioMessage) return 'audio';
+  if (m.documentMessage) return 'document';
+  if (m.stickerMessage) return 'sticker';
+  if (m.locationMessage) return 'location';
+  if (m.contactMessage || m.contactsArrayMessage) return 'contact';
+  if (m.reactionMessage) return 'reaction';
+  return 'other';
+}
+
 export class BaileysSessionManager {
   private static instance: BaileysSessionManager;
   private readonly sessions = new Map<string, SessionInstance>();
@@ -33,19 +79,31 @@ export class BaileysSessionManager {
   private readonly baseSessionPath: string;
   private readonly logger = pino({ level: 'warn' });
   private onConnectedCallback?: OnConnectedHandler;
+  private messageRepo?: SqliteMessageRepository;
 
-  constructor(baseSessionPath: string = './data/sessions') {
+  constructor(baseSessionPath: string = './data/sessions', messageRepo?: SqliteMessageRepository) {
     this.baseSessionPath = path.resolve(baseSessionPath);
+    this.messageRepo = messageRepo;
     if (!fs.existsSync(this.baseSessionPath)) {
       fs.mkdirSync(this.baseSessionPath, { recursive: true });
     }
   }
 
-  public static getInstance(baseSessionPath?: string): BaileysSessionManager {
+  public static getInstance(baseSessionPath?: string, messageRepo?: SqliteMessageRepository): BaileysSessionManager {
     if (!BaileysSessionManager.instance) {
-      BaileysSessionManager.instance = new BaileysSessionManager(baseSessionPath);
+      BaileysSessionManager.instance = new BaileysSessionManager(baseSessionPath, messageRepo);
+    } else if (messageRepo && !BaileysSessionManager.instance.messageRepo) {
+      BaileysSessionManager.instance.messageRepo = messageRepo;
     }
     return BaileysSessionManager.instance;
+  }
+
+  public setMessageRepo(repo: SqliteMessageRepository): void {
+    this.messageRepo = repo;
+  }
+
+  public getMessageRepo(): SqliteMessageRepository | undefined {
+    return this.messageRepo;
   }
 
   public setOnConnected(handler: OnConnectedHandler): void {
@@ -152,13 +210,89 @@ export class BaileysSessionManager {
       logger: this.logger,
       printQRInTerminal: false,
       browser: Browsers.ubuntu('Chrome'),
-      syncFullHistory: false,
+      syncFullHistory: true,
       generateHighQualityLinkPreview: true,
     });
 
     sessionState.socket = socket;
 
     socket.ev.on('creds.update', saveCreds);
+
+    // Capture initial sync history from phone
+    socket.ev.on('messaging-history.set', (payload) => {
+      if (!this.messageRepo) return;
+      const { chats, messages } = payload;
+      if (chats) {
+        for (const c of chats) {
+          if (!c.id) continue;
+          this.messageRepo.upsertChat(channelId, {
+            jid: c.id,
+            name: c.name || undefined,
+            unreadCount: c.unreadCount || 0,
+            timestamp: (c.conversationTimestamp as number) ? Number(c.conversationTimestamp) * 1000 : Date.now(),
+            isGroup: c.id.endsWith('@g.us'),
+          });
+        }
+      }
+      if (messages) {
+        for (const m of messages) {
+          const chatJid = m.key.remoteJid;
+          const msgId = m.key.id;
+          if (!chatJid || !msgId) continue;
+          const text = extractMessageText(m);
+          const type = extractMessageType(m);
+          const ts = m.messageTimestamp ? Number(m.messageTimestamp) * 1000 : Date.now();
+          this.messageRepo.upsertMessage(channelId, {
+            id: msgId,
+            chatJid,
+            senderJid: m.key.participant || (m.key.fromMe ? (sessionState.userPhone ? `${sessionState.userPhone}@s.whatsapp.net` : 'me') : chatJid),
+            fromMe: !!m.key.fromMe,
+            messageType: type,
+            textContent: text,
+            timestamp: ts,
+            raw: m,
+          });
+        }
+      }
+    });
+
+    // Capture dynamic chat updates
+    socket.ev.on('chats.upsert', (chats) => {
+      if (!this.messageRepo) return;
+      for (const c of chats) {
+        if (!c.id) continue;
+        this.messageRepo.upsertChat(channelId, {
+          jid: c.id,
+          name: c.name || undefined,
+          unreadCount: c.unreadCount || 0,
+          timestamp: (c.conversationTimestamp as number) ? Number(c.conversationTimestamp) * 1000 : Date.now(),
+          isGroup: c.id.endsWith('@g.us'),
+        });
+      }
+    });
+
+    // Capture dynamic incoming/outgoing messages
+    socket.ev.on('messages.upsert', (payload) => {
+      if (!this.messageRepo) return;
+      for (const m of payload.messages) {
+        const chatJid = m.key.remoteJid;
+        const msgId = m.key.id;
+        if (!chatJid || !msgId) continue;
+        const text = extractMessageText(m);
+        const type = extractMessageType(m);
+        const ts = m.messageTimestamp ? Number(m.messageTimestamp) * 1000 : Date.now();
+        this.messageRepo.upsertMessage(channelId, {
+          id: msgId,
+          chatJid,
+          senderJid: m.key.participant || (m.key.fromMe ? (sessionState.userPhone ? `${sessionState.userPhone}@s.whatsapp.net` : 'me') : chatJid),
+          fromMe: !!m.key.fromMe,
+          messageType: type,
+          textContent: text,
+          timestamp: ts,
+          raw: m,
+        });
+      }
+    });
 
     socket.ev.on('connection.update', async (update) => {
       const { connection, lastDisconnect, qr } = update;

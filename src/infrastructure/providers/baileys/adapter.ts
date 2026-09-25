@@ -109,10 +109,27 @@ export class BaileysAdapter implements IWhatsAppProvider, IGroupProvider {
     }
 
     const res = await sock.sendMessage(jid, messageContent);
+    const msgId = res?.key.id || undefined;
+    const now = Date.now();
+
+    const repo = this.sessionManager.getMessageRepo();
+    if (repo && msgId) {
+      repo.upsertMessage(channel.id, {
+        id: msgId,
+        chatJid: jid,
+        senderJid: channel.phoneNumber ? `${channel.phoneNumber}@s.whatsapp.net` : 'me',
+        fromMe: true,
+        messageType: 'text',
+        textContent: params.text,
+        timestamp: now,
+        raw: res,
+      });
+    }
+
     return {
       success: true,
-      messageId: res?.key.id || undefined,
-      timestamp: Date.now(),
+      messageId: msgId,
+      timestamp: now,
       raw: res,
     };
   }
@@ -159,10 +176,27 @@ export class BaileysAdapter implements IWhatsAppProvider, IGroupProvider {
     }
 
     const res = await sock.sendMessage(jid, messageContent);
+    const msgId = res?.key.id || undefined;
+    const now = Date.now();
+
+    const repo = this.sessionManager.getMessageRepo();
+    if (repo && msgId) {
+      repo.upsertMessage(channel.id, {
+        id: msgId,
+        chatJid: jid,
+        senderJid: channel.phoneNumber ? `${channel.phoneNumber}@s.whatsapp.net` : 'me',
+        fromMe: true,
+        messageType: params.mediaType,
+        textContent: params.caption || `[${params.mediaType}]`,
+        timestamp: now,
+        raw: res,
+      });
+    }
+
     return {
       success: true,
-      messageId: res?.key.id || undefined,
-      timestamp: Date.now(),
+      messageId: msgId,
+      timestamp: now,
       raw: res,
     };
   }
@@ -181,10 +215,27 @@ export class BaileysAdapter implements IWhatsAppProvider, IGroupProvider {
     };
 
     const res = await sock.sendMessage(jid, messageContent);
+    const msgId = res?.key.id || undefined;
+    const now = Date.now();
+
+    const repo = this.sessionManager.getMessageRepo();
+    if (repo && msgId) {
+      repo.upsertMessage(channel.id, {
+        id: msgId,
+        chatJid: jid,
+        senderJid: channel.phoneNumber ? `${channel.phoneNumber}@s.whatsapp.net` : 'me',
+        fromMe: true,
+        messageType: 'location',
+        textContent: params.name ? `Location: ${params.name}` : `GPS: ${params.latitude}, ${params.longitude}`,
+        timestamp: now,
+        raw: res,
+      });
+    }
+
     return {
       success: true,
-      messageId: res?.key.id || undefined,
-      timestamp: Date.now(),
+      messageId: msgId,
+      timestamp: now,
       raw: res,
     };
   }
@@ -208,10 +259,27 @@ export class BaileysAdapter implements IWhatsAppProvider, IGroupProvider {
     };
 
     const res = await sock.sendMessage(jid, messageContent);
+    const msgId = res?.key.id || undefined;
+    const now = Date.now();
+
+    const repo = this.sessionManager.getMessageRepo();
+    if (repo && msgId) {
+      repo.upsertMessage(channel.id, {
+        id: msgId,
+        chatJid: jid,
+        senderJid: channel.phoneNumber ? `${channel.phoneNumber}@s.whatsapp.net` : 'me',
+        fromMe: true,
+        messageType: 'contact',
+        textContent: `Contact: ${params.contactName} (${params.contactPhone})`,
+        timestamp: now,
+        raw: res,
+      });
+    }
+
     return {
       success: true,
-      messageId: res?.key.id || undefined,
-      timestamp: Date.now(),
+      messageId: msgId,
+      timestamp: now,
       raw: res,
     };
   }
@@ -239,13 +307,16 @@ export class BaileysAdapter implements IWhatsAppProvider, IGroupProvider {
     };
   }
 
-  async findMessages(_filter: FindMessagesFilter, _channel: Channel): Promise<DomainMessage[]> {
-    // Baileys is an event-driven WebSocket transport; message store queries are serviced from active sessions
-    return [];
+  async findMessages(filter: FindMessagesFilter, channel: Channel): Promise<DomainMessage[]> {
+    const repo = this.sessionManager.getMessageRepo();
+    if (!repo) return [];
+    return repo.getMessages(channel.id, filter.chatId, filter.count || 20);
   }
 
-  async findChats(_channel: Channel): Promise<DomainChat[]> {
-    return [];
+  async findChats(channel: Channel): Promise<DomainChat[]> {
+    const repo = this.sessionManager.getMessageRepo();
+    if (!repo) return [];
+    return repo.getChats(channel.id, 50);
   }
 
   async checkNumber(phoneNumber: string, channel: Channel): Promise<CheckNumberResult> {
