@@ -74,9 +74,8 @@ async function startServerMode(): Promise<void> {
     console.error(`[${PKG_NAME}] Error hydrating Baileys sessions:`, (err as Error).message);
   }
 
-  // 4. Initialize MCP Server
-  const mcpServer = createUnifiedMcpServer(channelResolver);
-  const mcpTransportHandler = setupMcpTransport(mcpServer);
+  // 4. Initialize MCP Server & Transport
+  const mcpTransport = setupMcpTransport(channelResolver);
   const mcpAuthMiddleware = createMcpAuthMiddleware(config.mcpApiToken);
 
   // 5. Initialize Express HTTP Application
@@ -123,15 +122,22 @@ async function startServerMode(): Promise<void> {
   // Direct Messaging & Chats REST API
   app.use('/api', createMessagingRestRouter(channelResolver, config.mcpApiToken, adminAuthService));
 
-  // MCP Protocol Endpoints (Streamable HTTP / SSE)
+  // MCP Protocol Endpoints (Streamable HTTP & SSE)
   app.all('/mcp', mcpAuthMiddleware, (req, res) => {
-    mcpTransportHandler(req, res);
+    mcpTransport.handleMcp(req, res);
+  });
+  app.get('/sse', mcpAuthMiddleware, (req, res) => {
+    mcpTransport.handleSse(req, res);
+  });
+  app.post('/messages', mcpAuthMiddleware, (req, res) => {
+    mcpTransport.handleMessages(req, res);
   });
 
   // Start HTTP Server
   app.listen(config.httpPort, config.httpHost, () => {
     console.error(`[${PKG_NAME} v${PKG_VERSION}] HTTP gateway active on http://${config.httpHost}:${config.httpPort}`);
     console.error(`  - MCP Endpoint:      http://${config.httpHost}:${config.httpPort}/mcp`);
+    console.error(`  - SSE Endpoint:      http://${config.httpHost}:${config.httpPort}/sse`);
     console.error(`  - REST API:          http://${config.httpHost}:${config.httpPort}/api`);
     console.error(`  - API Docs (Swagger):http://${config.httpHost}:${config.httpPort}/docs`);
     console.error(`  - Admin Panel:       http://${config.httpHost}:${config.httpPort}/panel`);

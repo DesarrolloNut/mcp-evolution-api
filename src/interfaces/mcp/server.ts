@@ -62,7 +62,7 @@ export function createUnifiedMcpServer(resolver: ChannelResolver): Server {
   return server;
 }
 
-function toInputSchema(schema: Parameters<typeof zodToJsonSchema>[0]): Tool['inputSchema'] {
+export function toInputSchema(schema: Parameters<typeof zodToJsonSchema>[0]): Tool['inputSchema'] {
   const json = zodToJsonSchema(schema, { target: 'jsonSchema7', $refStrategy: 'none' }) as Record<
     string,
     unknown

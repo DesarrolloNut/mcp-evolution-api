@@ -72,6 +72,93 @@ async function runGatewaySmoke(): Promise<void> {
   const connTest = await baileysAdapter.testConnection();
   console.log(`✅ Baileys Adapter testConnection: success=${connTest.success}, message="${connTest.message}"`);
 
+  // 6. Verify MCP HTTP Transport (Initialize, tools/list discovery, direct probes)
+  const express = (await import('express')).default;
+  const { setupMcpTransport } = await import('./interfaces/mcp/transport.js');
+  const mcpApp = express();
+  mcpApp.use(express.json());
+  const transportManager = setupMcpTransport(resolver);
+  mcpApp.all('/mcp', (req, res) => {
+    transportManager.handleMcp(req, res);
+  });
+
+  const testServer = await new Promise<import('node:http').Server>((resolve) => {
+    const s = mcpApp.listen(0, '127.0.0.1', () => resolve(s));
+  });
+  const address = testServer.address() as import('node:net').AddressInfo;
+  const mcpUrl = `http://127.0.0.1:${address.port}/mcp`;
+
+  try {
+    // Check 6a: Direct tools/list probe (Testing tool scenario)
+    const directListRes = await fetch(mcpUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} }),
+    });
+    const directListData = (await directListRes.json()) as Record<string, unknown>;
+    console.log('directListRes status:', directListRes.status, 'body:', JSON.stringify(directListData));
+    const directResult = directListData.result as { tools?: unknown[] } | undefined;
+    const toolCount = directResult?.tools?.length ?? 0;
+    if (toolCount !== 24) {
+      throw new Error(`Expected 24 tools in tools/list direct probe, got ${toolCount}. Body: ${JSON.stringify(directListData)}`);
+    }
+    console.log(`✅ MCP HTTP Direct probe: tools/list returned ${toolCount} tools successfully.`);
+
+    // Check 6b: Standard Initialize -> tools/list sequence
+    const initRes = await fetch(mcpUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 2,
+        method: 'initialize',
+        params: {
+          protocolVersion: '2024-11-05',
+          capabilities: {},
+          clientInfo: { name: 'smoke-client', version: '1.0.0' },
+        },
+      }),
+    });
+    const sessionId = initRes.headers.get('mcp-session-id');
+    console.log(`✅ MCP HTTP Initialize handshake: status ${initRes.status}, session=${sessionId || 'stateless'}`);
+
+    const sessionListRes = await fetch(mcpUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json, text/event-stream',
+        ...(sessionId ? { 'mcp-session-id': sessionId } : {}),
+      },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 3, method: 'tools/list', params: {} }),
+    });
+    const sessionListData = (await sessionListRes.json()) as { result?: { tools?: unknown[] } };
+    const sessionToolCount = sessionListData.result?.tools?.length ?? 0;
+    if (sessionToolCount !== 24) {
+      throw new Error(`Expected 24 tools in tools/list session probe, got ${sessionToolCount}`);
+    }
+    // Check 6c: Direct tools/call validation check
+    const callRes = await fetch(mcpUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 4,
+        method: 'tools/call',
+        params: {
+          name: 'whatsapp_send_text',
+          arguments: { recipient: '', text: '' },
+        },
+      }),
+    });
+    const callData = (await callRes.json()) as { result?: { isError?: boolean; content?: Array<{ text: string }> } };
+    if (!callData.result?.isError || !callData.result?.content?.[0]?.text) {
+      throw new Error(`Expected tool validation error response, got ${JSON.stringify(callData)}`);
+    }
+    console.log(`✅ MCP HTTP tools/call validated: gracefully handled argument validation error.`);
+  } finally {
+    testServer.close();
+  }
+
   closeDatabase();
   console.log('\nAll gateway smoke checks passed successfully.');
 }
