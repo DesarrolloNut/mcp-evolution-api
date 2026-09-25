@@ -1,6 +1,11 @@
 (function () {
   let token = localStorage.getItem('mcp_admin_token') || null;
   let cachedProviders = [];
+  let cachedChannels = [];
+  let cachedChats = [];
+  let activeSelectedChatId = null;
+  let activeSelectedChannel = null;
+  let chatSearchQuery = '';
   let qrPollInterval = null;
   let activeQrChannelId = null;
 
@@ -15,6 +20,24 @@
   // Navigation
   const navItems = document.querySelectorAll('.nav-item');
   const tabPanes = document.querySelectorAll('.tab-pane');
+
+  // Chats & Messages Explorer Elements
+  const dashRecentChats = document.getElementById('dash-recent-chats');
+  const chatChannelSelect = document.getElementById('chat-channel-select');
+  const chatSearchInput = document.getElementById('chat-search-input');
+  const chatsListContainer = document.getElementById('chats-list-container');
+  const chatViewerEmpty = document.getElementById('chat-viewer-empty');
+  const chatViewerActive = document.getElementById('chat-viewer-active');
+  const activeChatAvatar = document.getElementById('active-chat-avatar');
+  const activeChatTitle = document.getElementById('active-chat-title');
+  const activeChatJid = document.getElementById('active-chat-jid');
+  const activeChatChannel = document.getElementById('active-chat-channel');
+  const chatMessagesStream = document.getElementById('chat-messages-stream');
+  const chatReplyForm = document.getElementById('chat-reply-form');
+  const chatReplyInput = document.getElementById('chat-reply-input');
+  const chatReplySendBtn = document.getElementById('chat-reply-send-btn');
+  const refreshChatsBtn = document.getElementById('refresh-chats-btn');
+  const refreshActiveChatBtn = document.getElementById('refresh-active-chat-btn');
 
   // Modals
   const providerModal = document.getElementById('provider-modal');
@@ -68,6 +91,31 @@
   const statDefaultChannel = document.getElementById('stat-default-channel');
   const statUptime = document.getElementById('stat-uptime');
   const refreshDashboardBtn = document.getElementById('refresh-dashboard-btn');
+
+  // Helper: Format relative or short date/time
+  function formatChatTime(ts) {
+    if (!ts) return '';
+    const date = new Date(typeof ts === 'number' && ts < 10000000000 ? ts * 1000 : ts);
+    if (isNaN(date.getTime())) return '';
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    if (isToday) {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    if (date.toDateString() === yesterday.toDateString()) {
+      return 'Ayer';
+    }
+    return date.toLocaleDateString([], { day: '2-digit', month: '2-digit' });
+  }
+
+  function formatTime(ts) {
+    if (!ts) return '';
+    const date = new Date(typeof ts === 'number' && ts < 10000000000 ? ts * 1000 : ts);
+    if (isNaN(date.getTime())) return '';
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
 
   // Helper API fetch
   async function api(path, options = {}) {
@@ -133,6 +181,7 @@
     appView.classList.remove('hidden');
     loggedUser.textContent = username || localStorage.getItem('mcp_admin_user') || 'admin';
     loadDashboard();
+    loadRecentChats();
     loadProviders();
     loadChannels();
   }
@@ -148,7 +197,11 @@
     const targetPane = document.getElementById(`tab-${tabId}`);
     if (targetPane) targetPane.classList.add('active');
 
-    if (tabId === 'dashboard') loadDashboard();
+    if (tabId === 'dashboard') {
+      loadDashboard();
+      loadRecentChats();
+    }
+    if (tabId === 'chats') loadChatsTab();
     if (tabId === 'providers') loadProviders();
     if (tabId === 'channels') loadChannels();
     if (tabId === 'mcp') loadMcpGuide();
@@ -250,8 +303,349 @@
     }
   }
 
+  // Data Loading: Recent Chats Widget (Top 5 for Dashboard)
+  async function loadRecentChats() {
+    if (!dashRecentChats) return;
+    try {
+      const res = await api('/api/chats');
+      const chats = res.chats || [];
+      if (chats.length === 0) {
+        dashRecentChats.innerHTML = `
+          <div class="text-center text-muted p-4" style="grid-column: 1 / -1;">
+            <div style="font-size: 2rem; margin-bottom: 0.5rem; opacity: 0.6;">💬</div>
+            No hay conversaciones sincronizadas aún.<br>
+            <small class="text-muted">Los mensajes entrantes y salientes de WhatsApp se registrarán aquí automáticamente.</small>
+          </div>
+        `;
+        return;
+      }
+
+      const top5 = chats.slice(0, 5);
+      dashRecentChats.innerHTML = top5
+        .map((c) => {
+          const isGroup = c.isGroup || (c.id && c.id.endsWith('@g.us'));
+          const displayName = escapeHtml(c.name || c.phoneNumber || (c.id ? c.id.split('@')[0] : 'Desconocido'));
+          const avatar = isGroup ? '👥' : '👤';
+          const timeStr = formatChatTime(c.lastMessageTimestamp);
+          const preview = escapeHtml(c.lastMessage || 'Conversación activa');
+          const channelName = escapeHtml(c.channel || res.channel || 'predeterminado');
+          const unreadBadge = c.unreadCount && c.unreadCount > 0
+            ? `<span class="unread-pill">${c.unreadCount}</span>`
+            : '';
+
+          return `
+            <div class="dash-chat-card" onclick="window.openChatInExplorer('${escapeHtml(c.id)}', '${channelName}')">
+              <div class="dash-chat-avatar">${avatar}</div>
+              <div class="dash-chat-info">
+                <div class="dash-chat-top">
+                  <span class="dash-chat-name" title="${displayName}">${displayName}</span>
+                  <span class="dash-chat-time">${timeStr}</span>
+                </div>
+                <div class="dash-chat-bottom">
+                  <span class="dash-chat-preview">${preview}</span>
+                  <div style="display: flex; gap: 0.35rem; align-items: center;">
+                    <span class="badge badge-muted" style="font-size: 0.68rem;">${channelName}</span>
+                    ${unreadBadge}
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+        })
+        .join('');
+    } catch (err) {
+      dashRecentChats.innerHTML = `<div class="text-center text-muted p-3" style="grid-column: 1 / -1;">Error al cargar conversaciones recientes: ${err.message}</div>`;
+    }
+  }
+
+  window.openChatInExplorer = async (chatId, channelName) => {
+    window.switchTab('chats');
+    if (channelName && chatChannelSelect) {
+      chatChannelSelect.value = channelName;
+    }
+    await loadChatsTab(channelName);
+    selectChat(chatId, channelName);
+  };
+
+  // ── CHATS & MESSAGES EXPLORER TAB ──────────────────────────────────────────
+
+  async function loadChatsTab(preferredChannel) {
+    try {
+      if (chatChannelSelect) {
+        if (!cachedChannels || cachedChannels.length === 0) {
+          cachedChannels = await api('/api/admin/channels');
+        }
+        const currentVal = preferredChannel !== undefined ? preferredChannel : chatChannelSelect.value;
+        chatChannelSelect.innerHTML = '<option value="">Línea Predeterminada / Todas</option>' +
+          cachedChannels
+            .filter((c) => c.isActive)
+            .map((c) => `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}${c.phoneNumber ? ` (${c.phoneNumber})` : ''}</option>`)
+            .join('');
+        if (currentVal) {
+          chatChannelSelect.value = currentVal;
+        }
+      }
+
+      const selectedChannel = chatChannelSelect ? chatChannelSelect.value : (preferredChannel || '');
+      const queryParam = selectedChannel ? `?channel=${encodeURIComponent(selectedChannel)}` : '';
+
+      if (chatsListContainer) {
+        chatsListContainer.innerHTML = '<div class="text-center text-muted p-4">Cargando conversaciones...</div>';
+      }
+
+      const res = await api(`/api/chats${queryParam}`);
+      cachedChats = res.chats || [];
+      renderChatsList();
+
+      if (activeSelectedChatId) {
+        const stillExists = cachedChats.find((c) => c.id === activeSelectedChatId);
+        if (stillExists) {
+          selectChat(activeSelectedChatId, selectedChannel || stillExists.channel);
+        }
+      }
+    } catch (err) {
+      if (chatsListContainer) {
+        chatsListContainer.innerHTML = `<div class="text-center text-muted p-4">Error al cargar chats: ${err.message}</div>`;
+      }
+    }
+  }
+
+  function renderChatsList() {
+    if (!chatsListContainer) return;
+    const query = (chatSearchQuery || '').toLowerCase().trim();
+    const filtered = cachedChats.filter((c) => {
+      if (!query) return true;
+      const name = (c.name || '').toLowerCase();
+      const id = (c.id || '').toLowerCase();
+      const phone = (c.phoneNumber || '').toLowerCase();
+      const lastMsg = (c.lastMessage || '').toLowerCase();
+      return name.includes(query) || id.includes(query) || phone.includes(query) || lastMsg.includes(query);
+    });
+
+    if (filtered.length === 0) {
+      chatsListContainer.innerHTML = `
+        <div class="text-center text-muted p-4">
+          ${query ? 'No se encontraron conversaciones con esa búsqueda.' : 'No hay conversaciones registradas aún.'}
+        </div>
+      `;
+      return;
+    }
+
+    chatsListContainer.innerHTML = filtered
+      .map((c) => {
+        const isGroup = c.isGroup || (c.id && c.id.endsWith('@g.us'));
+        const displayName = escapeHtml(c.name || c.phoneNumber || (c.id ? c.id.split('@')[0] : 'Desconocido'));
+        const avatar = isGroup ? '👥' : '👤';
+        const timeStr = formatChatTime(c.lastMessageTimestamp);
+        const preview = escapeHtml(c.lastMessage || 'Sin mensajes previos');
+        const channelName = escapeHtml(c.channel || '');
+        const isActive = activeSelectedChatId === c.id;
+        const unreadBadge = c.unreadCount && c.unreadCount > 0
+          ? `<span class="unread-pill">${c.unreadCount}</span>`
+          : '';
+
+        return `
+          <div class="chat-item ${isActive ? 'active' : ''}" data-chat-id="${escapeHtml(c.id)}" data-channel="${channelName}">
+            <div class="chat-avatar">${avatar}</div>
+            <div class="chat-item-content">
+              <div class="chat-item-top">
+                <span class="chat-item-title" title="${displayName}">${displayName}</span>
+                <span class="chat-item-time">${timeStr}</span>
+              </div>
+              <div class="chat-item-bottom">
+                <span class="chat-item-snippet">${preview}</span>
+                <div class="chat-item-badges">
+                  ${channelName ? `<span class="badge badge-muted" style="font-size: 0.65rem;">${channelName}</span>` : ''}
+                  ${unreadBadge}
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      })
+      .join('');
+
+    chatsListContainer.querySelectorAll('.chat-item').forEach((el) => {
+      el.addEventListener('click', () => {
+        const chatId = el.getAttribute('data-chat-id');
+        const channel = el.getAttribute('data-channel');
+        selectChat(chatId, channel);
+      });
+    });
+  }
+
+  async function selectChat(chatId, channelName) {
+    activeSelectedChatId = chatId;
+    activeSelectedChannel = channelName || (chatChannelSelect ? chatChannelSelect.value : '');
+
+    document.querySelectorAll('.chat-item').forEach((el) => {
+      if (el.getAttribute('data-chat-id') === chatId) {
+        el.classList.add('active');
+      } else {
+        el.classList.remove('active');
+      }
+    });
+
+    const chatObj = cachedChats.find((c) => c.id === chatId);
+    const isGroup = chatObj ? (chatObj.isGroup || chatObj.id.endsWith('@g.us')) : chatId.endsWith('@g.us');
+    const displayName = chatObj ? (chatObj.name || chatObj.phoneNumber || chatObj.id.split('@')[0]) : chatId.split('@')[0];
+
+    if (chatViewerEmpty) chatViewerEmpty.classList.add('hidden');
+    if (chatViewerActive) chatViewerActive.classList.remove('hidden');
+
+    if (activeChatAvatar) activeChatAvatar.textContent = isGroup ? '👥' : '👤';
+    if (activeChatTitle) activeChatTitle.textContent = displayName;
+    if (activeChatJid) activeChatJid.textContent = chatId;
+    if (activeChatChannel) activeChatChannel.textContent = activeSelectedChannel || 'predeterminado';
+
+    if (chatMessagesStream) {
+      chatMessagesStream.innerHTML = '<div class="text-center text-muted p-4">Cargando mensajes...</div>';
+    }
+
+    try {
+      const queryChannel = activeSelectedChannel ? `&channel=${encodeURIComponent(activeSelectedChannel)}` : '';
+      const res = await api(`/api/messages?chatId=${encodeURIComponent(chatId)}&count=50${queryChannel}`);
+      renderMessages(res.messages || []);
+    } catch (err) {
+      if (chatMessagesStream) {
+        chatMessagesStream.innerHTML = `<div class="text-center text-muted p-4">Error al cargar mensajes: ${err.message}</div>`;
+      }
+    }
+  }
+
+  function renderMessages(messages) {
+    if (!chatMessagesStream) return;
+    if (messages.length === 0) {
+      chatMessagesStream.innerHTML = `
+        <div class="text-center text-muted p-4" style="margin: auto;">
+          <div style="font-size: 2.5rem; opacity: 0.5; margin-bottom: 0.5rem;">💬</div>
+          No hay mensajes en este chat aún.<br>
+          <small class="text-muted">Escribe un mensaje en el campo inferior para responder o iniciar.</small>
+        </div>
+      `;
+      return;
+    }
+
+    chatMessagesStream.innerHTML = messages
+      .map((m) => {
+        const fromMe = Boolean(m.fromMe);
+        const bubbleClass = fromMe ? 'outbound' : 'inbound';
+        const senderDisplay = !fromMe && m.senderName
+          ? `<div class="message-sender">${escapeHtml(m.senderName)}</div>`
+          : '';
+        const mediaTag = m.type && m.type !== 'text' && m.type !== 'conversation'
+          ? `<div class="message-media-tag">📎 ${escapeHtml(m.type)}</div>`
+          : '';
+        const textContent = m.text || m.caption || '';
+        const timeStr = formatTime(m.timestamp);
+        const checkmark = fromMe ? '<span style="color: #53bdeb;">✓✓</span>' : '';
+
+        return `
+          <div class="message-bubble ${bubbleClass}">
+            ${senderDisplay}
+            ${mediaTag}
+            ${textContent ? `<div class="message-text">${escapeHtml(textContent)}</div>` : ''}
+            <div class="message-meta">
+              <span>${timeStr}</span>
+              ${checkmark}
+            </div>
+          </div>
+        `;
+      })
+      .join('');
+
+    chatMessagesStream.scrollTop = chatMessagesStream.scrollHeight;
+  }
+
+  // Search Filter Handler
+  if (chatSearchInput) {
+    chatSearchInput.addEventListener('input', (e) => {
+      chatSearchQuery = e.target.value;
+      renderChatsList();
+    });
+  }
+
+  // Channel Select Filter Handler
+  if (chatChannelSelect) {
+    chatChannelSelect.addEventListener('change', () => {
+      activeSelectedChatId = null;
+      if (chatViewerActive) chatViewerActive.classList.add('hidden');
+      if (chatViewerEmpty) chatViewerEmpty.classList.remove('hidden');
+      loadChatsTab();
+    });
+  }
+
+  // Refresh Buttons
+  if (refreshChatsBtn) {
+    refreshChatsBtn.addEventListener('click', () => loadChatsTab());
+  }
+
+  if (refreshActiveChatBtn) {
+    refreshActiveChatBtn.addEventListener('click', () => {
+      if (activeSelectedChatId) {
+        selectChat(activeSelectedChatId, activeSelectedChannel);
+      }
+    });
+  }
+
+  // Send Quick Reply Form Handler
+  if (chatReplyForm) {
+    chatReplyForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!activeSelectedChatId) return;
+
+      const text = chatReplyInput.value.trim();
+      if (!text) return;
+
+      const recipient = activeSelectedChatId;
+      const channel = activeSelectedChannel || (chatChannelSelect ? chatChannelSelect.value : '');
+
+      const optimisticBubble = document.createElement('div');
+      optimisticBubble.className = 'message-bubble outbound';
+      optimisticBubble.innerHTML = `
+        <div class="message-text">${escapeHtml(text)}</div>
+        <div class="message-meta">
+          <span>${formatTime(Date.now())}</span>
+          <span style="opacity: 0.6;">⏳</span>
+        </div>
+      `;
+      chatMessagesStream.appendChild(optimisticBubble);
+      chatMessagesStream.scrollTop = chatMessagesStream.scrollHeight;
+
+      chatReplyInput.value = '';
+      chatReplySendBtn.disabled = true;
+
+      try {
+        await api('/api/messages/text', {
+          method: 'POST',
+          body: JSON.stringify({ recipient, text, channel }),
+        });
+
+        const metaEl = optimisticBubble.querySelector('.message-meta');
+        if (metaEl) {
+          metaEl.innerHTML = `<span>${formatTime(Date.now())}</span><span style="color: #53bdeb;">✓✓</span>`;
+        }
+
+        // Silently reload chat summaries to update timestamps and snippets
+        const queryParam = channel ? `?channel=${encodeURIComponent(channel)}` : '';
+        const res = await api(`/api/chats${queryParam}`);
+        cachedChats = res.chats || [];
+        renderChatsList();
+      } catch (err) {
+        alert(`Error al enviar mensaje: ${err.message}`);
+        optimisticBubble.remove();
+      } finally {
+        chatReplySendBtn.disabled = false;
+        chatReplyInput.focus();
+      }
+    });
+  }
+
   if (refreshDashboardBtn) {
-    refreshDashboardBtn.addEventListener('click', loadDashboard);
+    refreshDashboardBtn.addEventListener('click', () => {
+      loadDashboard();
+      loadRecentChats();
+    });
   }
 
   // Data Loading: MCP Connection Guide

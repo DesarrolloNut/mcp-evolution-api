@@ -49,6 +49,9 @@
         <button class="nav-item active" data-tab="dashboard">
           <span class="icon">📊</span> Panel General
         </button>
+        <button class="nav-item" data-tab="chats">
+          <span class="icon">💬</span> Chats y Mensajes
+        </button>
         <button class="nav-item" data-tab="providers">
           <span class="icon">🔌</span> Proveedores
         </button>
@@ -98,6 +101,20 @@
           </div>
         </div>
 
+        <!-- Recent Conversations Widget (Top 5) -->
+        <div class="card mt-4">
+          <div class="flex-between mb-3">
+            <div>
+              <h3>💬 Conversaciones Recientes (Top 5)</h3>
+              <p class="text-muted mt-1">Últimos chats con actividad en el gateway.</p>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="window.switchTab('chats')">Explorar Todos los Chats →</button>
+          </div>
+          <div id="dash-recent-chats" class="dash-recent-chats-grid">
+            <div class="text-center text-muted p-3">Cargando conversaciones recientes...</div>
+          </div>
+        </div>
+
         <div class="card mt-4">
           <div class="flex-between">
             <div>
@@ -109,6 +126,83 @@
           <div class="info-row mt-3">
             <strong>Endpoint MCP en Vivo:</strong>
             <code id="dash-mcp-url">-</code>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tab: Chats & Messages Explorer -->
+      <section id="tab-chats" class="tab-pane">
+        <header class="page-header mb-3">
+          <div>
+            <h1>Explorador de Chats y Mensajes</h1>
+            <p class="text-muted">Explora en tiempo real las conversaciones y mensajes sincronizados en el gateway.</p>
+          </div>
+          <div class="flex-actions" style="display: flex; gap: 0.75rem; align-items: center;">
+            <div class="channel-filter-wrap">
+              <select id="chat-channel-select" class="form-select-sm" style="padding: 0.4rem 0.75rem; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); color: var(--text-main);">
+                <option value="">Línea Predeterminada</option>
+              </select>
+            </div>
+            <button class="btn btn-secondary btn-sm" id="refresh-chats-btn">↻ Actualizar</button>
+          </div>
+        </header>
+
+        <div class="chats-explorer-container">
+          <!-- Left Column: Chats List -->
+          <div class="chats-sidebar">
+            <div class="chats-sidebar-header">
+              <div class="search-input-wrapper">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="chat-search-input" placeholder="Buscar por nombre o número...">
+              </div>
+            </div>
+            <div class="chats-list" id="chats-list-container">
+              <div class="text-center text-muted p-4">Cargando conversaciones...</div>
+            </div>
+          </div>
+
+          <!-- Right Column: Active Conversation Viewer -->
+          <div class="chats-viewer">
+            <!-- Empty state when no chat selected -->
+            <div id="chat-viewer-empty" class="chat-viewer-empty">
+              <div class="empty-icon">💬</div>
+              <h3>Selecciona una conversación</h3>
+              <p class="text-muted">Elige un chat de la lista izquierda para explorar su historial de mensajes o responder en vivo.</p>
+            </div>
+
+            <!-- Active Chat Screen -->
+            <div id="chat-viewer-active" class="chat-viewer-active hidden">
+              <div class="chat-header">
+                <div class="chat-header-info">
+                  <div class="chat-avatar-lg" id="active-chat-avatar">👤</div>
+                  <div>
+                    <h3 id="active-chat-title">Nombre del Contacto</h3>
+                    <div class="chat-header-meta">
+                      <span id="active-chat-jid" class="text-muted">18095551234@s.whatsapp.net</span>
+                      <span class="badge badge-blue" id="active-chat-channel">canal</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="chat-header-actions">
+                  <button class="btn btn-secondary btn-sm" id="refresh-active-chat-btn" title="Recargar mensajes">↻ Recargar</button>
+                </div>
+              </div>
+
+              <!-- Message Stream / Bubbles -->
+              <div class="chat-messages-container" id="chat-messages-stream">
+                <!-- Message Bubbles injected dynamically -->
+              </div>
+
+              <!-- Quick Reply Bar -->
+              <div class="chat-reply-bar">
+                <form id="chat-reply-form" class="chat-reply-form">
+                  <input type="text" id="chat-reply-input" placeholder="Escribe un mensaje de respuesta..." autocomplete="off" required>
+                  <button type="submit" class="btn btn-primary btn-sm" id="chat-reply-send-btn">
+                    <span>Enviar 🚀</span>
+                  </button>
+                </form>
+              </div>
+            </div>
           </div>
         </div>
       </section>
