@@ -76,12 +76,12 @@ Todas las herramientas unificadas operan con el prefijo `whatsapp_*`. Para compa
 
 ---
 
-## 3. Modo Legacy (stdio) — Solo Retrocompatibilidad
+## 3. Modo Local de Consola (stdio)
  
-> ℹ️ **Nota de Diseño:** En el modo Gateway (v2.0), **no configuras ningún proveedor ni número por variables de entorno**; todo se administra dinámicamente desde el panel web (`http://localhost:3000/panel`).
+> ℹ️ **Nota de Diseño:** En el Gateway (v2.0), **todos los proveedores y líneas telefónicas se configuran dinámicamente** desde el panel web o API REST y persisten en SQLite.
 >
-> La siguiente configuración es **exclusivamente un fallback** para clientes antiguos que no soportan conexión HTTP/SSE y requerían el modo monolítico v1.x:
+> Si deseas conectar clientes MCP locales que solo se comunican por flujos estándar (stdin/stdout):
 
 1. Define la variable de entorno `WHATSAPP_MODE=stdio`.
-2. Opcionalmente especifica `EVOLUTION_BASE_URL` y `EVOLUTION_API_KEY`.
-3. El servidor correrá sobre los flujos de entrada/salida estándar sin abrir puertos de red.
+2. El servidor correrá sobre los flujos de entrada/salida estándar sin abrir puertos de red, utilizando los canales y proveedores configurados en tu base de datos SQLite.
+

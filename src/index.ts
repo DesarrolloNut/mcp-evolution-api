@@ -8,16 +8,9 @@
 import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-  type Tool,
-} from '@modelcontextprotocol/sdk/types.js';
-import { zodToJsonSchema } from 'zod-to-json-schema';
 
-import { loadGatewayConfig, loadConfig } from './config.js';
+import { loadGatewayConfig } from './config.js';
 import { getDatabase } from './infrastructure/database/connection.js';
 import { runMigrations } from './infrastructure/database/migrations.js';
 import { SqliteProviderRepository } from './infrastructure/database/repositories/providerRepo.js';
@@ -29,12 +22,8 @@ import { createUnifiedMcpServer } from './interfaces/mcp/server.js';
 import { createMcpAuthMiddleware, setupMcpTransport } from './interfaces/mcp/transport.js';
 import { createAdminRouter } from './interfaces/admin/router.js';
 import { createMessagingRestRouter } from './interfaces/rest/messagingRouter.js';
-import { wrapUntrustedContent } from './application/security/promptInjection.js';
 import { BaileysSessionManager } from './infrastructure/providers/baileys/sessionManager.js';
 
-// Legacy direct client & registry imports for stdio mode
-import { EvolutionClient } from './client.js';
-import { buildRegistry } from './registry.js';
 
 const PKG_NAME = 'mcp-whatsapp';
 const PKG_VERSION = '2.0.0';
@@ -141,66 +130,56 @@ async function startServerMode(): Promise<void> {
   });
 }
 
-async function startStdioLegacyMode(): Promise<void> {
-  const config = loadConfig();
-  const client = new EvolutionClient(config);
-  const registry = buildRegistry(config);
+async function startStdioMode(): Promise<void> {
+  const config = loadGatewayConfig();
 
-  console.error(
-    `[${PKG_NAME} v${PKG_VERSION}] stdio legacy mode: ${registry.tools.length} tools from groups: ${registry.enabledGroups.join(', ')}`
-  );
+  // 1. Initialize SQLite Database & execute migrations
+  const db = getDatabase(config.sqlitePath);
+  runMigrations(db);
 
-  const server = new Server(
-    { name: PKG_NAME, version: PKG_VERSION },
-    { capabilities: { tools: {} } }
-  );
+  // 2. Initialize Repositories and Domain Services
+  const providerRepo = new SqliteProviderRepository(db, config.encryptionKey);
+  const channelRepo = new SqliteChannelRepository(db);
+  const providerFactory = new ProviderFactory(config.encryptionKey);
+  const channelResolver = new ChannelResolver(channelRepo, providerRepo, providerFactory);
 
-  server.setRequestHandler(ListToolsRequestSchema, async () => {
-    const tools: Tool[] = registry.tools.map((t) => ({
-      name: t.name,
-      description: t.description,
-      inputSchema: zodToJsonSchema(t.inputSchema, { target: 'jsonSchema7', $refStrategy: 'none' }) as Tool['inputSchema'],
-    }));
-    return { tools };
-  });
+  // 3. Hydrate active Baileys WhatsApp Web sessions if any
+  try {
+    const providers = await providerRepo.findAll();
+    const baileysProviderIds = new Set(
+      providers.filter((p) => p.type === 'baileys' && p.isActive).map((p) => p.id)
+    );
+    if (baileysProviderIds.size > 0) {
+      const allChannels = await channelRepo.findAll();
+      const activeBaileysChannelIds = allChannels
+        .filter((c) => c.isActive && baileysProviderIds.has(c.providerId))
+        .map((c) => c.id);
 
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    const { name, arguments: rawArgs } = request.params;
-    const tool = registry.byName.get(name);
-    if (!tool) {
-      return {
-        content: [{ type: 'text', text: `Unknown tool: ${name}` }],
-        isError: true,
-      };
+      if (activeBaileysChannelIds.length > 0) {
+        const sessionManager = BaileysSessionManager.getInstance();
+        await sessionManager.hydrateExistingSessions(activeBaileysChannelIds);
+      }
     }
+  } catch (err) {
+    console.error(`[${PKG_NAME}] Error hydrating Baileys sessions:`, (err as Error).message);
+  }
 
-    try {
-      const args = tool.inputSchema.parse(rawArgs ?? {});
-      const data = await tool.handler(client, args as Record<string, unknown>);
-      return {
-        content: [{ type: 'text', text: wrapUntrustedContent(data, name) }],
-      };
-    } catch (err) {
-      return {
-        content: [{ type: 'text', text: err instanceof Error ? err.message : String(err) }],
-        isError: true,
-      };
-    }
-  });
-
+  // 4. Create Unified MCP Server & Connect to Stdio Transport
+  const server = createUnifiedMcpServer(channelResolver);
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error(`[${PKG_NAME}] ready (stdio)`);
+  console.error(`[${PKG_NAME} v${PKG_VERSION}] ready (stdio mode, dynamic multi-channel)`);
 }
 
 async function main(): Promise<void> {
   const mode = process.env.WHATSAPP_MODE?.trim().toLowerCase();
   if (mode === 'stdio') {
-    await startStdioLegacyMode();
+    await startStdioMode();
   } else {
     await startServerMode();
   }
 }
+
 
 main().catch((err) => {
   console.error(`[${PKG_NAME}] fatal:`, err instanceof Error ? err.message : err);
