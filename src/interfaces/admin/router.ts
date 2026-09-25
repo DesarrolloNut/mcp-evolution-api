@@ -1,0 +1,32 @@
+import { Router } from 'express';
+import { AdminAuthService } from '../../application/services/adminAuth.js';
+import { IProviderRepository } from '../../domain/ports/IProviderRepository.js';
+import { IChannelRepository } from '../../domain/ports/IChannelRepository.js';
+import { ProviderFactory } from '../../application/services/providerFactory.js';
+import { createAdminAuthMiddleware } from './middleware/auth.js';
+import { createAuthRouter } from './routes/auth.js';
+import { createProvidersRouter } from './routes/providers.js';
+import { createChannelsRouter } from './routes/channels.js';
+import { createDashboardRouter } from './routes/dashboard.js';
+
+export interface AdminRouterDependencies {
+  authService: AdminAuthService;
+  providerRepo: IProviderRepository;
+  channelRepo: IChannelRepository;
+  providerFactory: ProviderFactory;
+}
+
+export function createAdminRouter(deps: AdminRouterDependencies): Router {
+  const router = Router();
+  const authMiddleware = createAdminAuthMiddleware(deps.authService);
+
+  // Public auth endpoint
+  router.use('/auth', createAuthRouter(deps.authService));
+
+  // Protected administration endpoints
+  router.use('/providers', authMiddleware, createProvidersRouter(deps.providerRepo, deps.providerFactory));
+  router.use('/channels', authMiddleware, createChannelsRouter(deps.channelRepo, deps.providerRepo));
+  router.use('/dashboard', authMiddleware, createDashboardRouter(deps.providerRepo, deps.channelRepo));
+
+  return router;
+}

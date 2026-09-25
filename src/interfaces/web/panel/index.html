@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MCP WhatsApp — Panel de Administración</title>
+  <link rel="stylesheet" href="/panel/styles.css">
+</head>
+<body>
+  <!-- Login Screen -->
+  <div id="login-view" class="view">
+    <div class="login-card">
+      <div class="brand">
+        <div class="brand-logo">💬</div>
+        <h1>MCP WhatsApp</h1>
+        <p class="subtitle">Gateway Multicanal de Mensajería</p>
+      </div>
+
+      <form id="login-form">
+        <div class="form-group">
+          <label for="username">Usuario Administrador</label>
+          <input type="text" id="username" placeholder="admin" required autocomplete="username">
+        </div>
+
+        <div class="form-group">
+          <label for="password">Contraseña</label>
+          <input type="password" id="password" placeholder="••••••••" required autocomplete="current-password">
+        </div>
+
+        <div id="login-error" class="alert error hidden"></div>
+
+        <button type="submit" class="btn btn-primary btn-block">Iniciar Sesión</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Main App Shell -->
+  <div id="app-view" class="view hidden">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <span class="logo-icon">💬</span>
+        <div class="brand-info">
+          <h2>MCP WhatsApp</h2>
+          <span class="version-tag">v2.0 Gateway</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-tab="dashboard">
+          <span class="icon">📊</span> Panel General
+        </button>
+        <button class="nav-item" data-tab="providers">
+          <span class="icon">🔌</span> Proveedores
+        </button>
+        <button class="nav-item" data-tab="channels">
+          <span class="icon">📱</span> Canales / Líneas
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <span class="user-badge" id="logged-user">admin</span>
+          <button id="logout-btn" class="btn-text">Cerrar Sesión</button>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <!-- Tab 1: Dashboard -->
+      <section id="tab-dashboard" class="tab-pane active">
+        <header class="page-header">
+          <h1>Resumen del Sistema</h1>
+          <button class="btn btn-secondary btn-sm" id="refresh-dashboard-btn">↻ Actualizar</button>
+        </header>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <span class="stat-title">Proveedores Conectados</span>
+            <span class="stat-value" id="stat-providers">-</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-title">Líneas / Canales Activos</span>
+            <span class="stat-value" id="stat-channels">-</span>
+          </div>
+          <div class="stat-card highlight">
+            <span class="stat-title">Línea Predeterminada</span>
+            <span class="stat-value text-green" id="stat-default-channel">Ninguna</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-title">Tiempo Activo</span>
+            <span class="stat-value" id="stat-uptime">-</span>
+          </div>
+        </div>
+
+        <div class="card mt-4">
+          <h3>Estado de la Persistencia</h3>
+          <p class="text-muted mt-1">Base de datos SQLite montada en disco en modo WAL con protección contra pérdida de datos.</p>
+          <div class="info-row mt-2">
+            <strong>Endpoint MCP de Agentes:</strong>
+            <code>/mcp</code> (Requiere Bearer MCP_API_TOKEN)
+          </div>
+        </div>
+      </section>
+
+      <!-- Tab 2: Providers -->
+      <section id="tab-providers" class="tab-pane">
+        <header class="page-header">
+          <div>
+            <h1>Proveedores de WhatsApp</h1>
+            <p class="text-muted">Servicios externos configurados (Evolution API, Meta, Twilio).</p>
+          </div>
+          <button class="btn btn-primary" id="open-provider-modal-btn">+ Nuevo Proveedor</button>
+        </header>
+
+        <div class="table-container card">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Tipo</th>
+                <th>URL Base</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="providers-table-body">
+              <tr><td colspan="5" class="text-center text-muted">Cargando proveedores...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Tab 3: Channels -->
+      <section id="tab-channels" class="tab-pane">
+        <header class="page-header">
+          <div>
+            <h1>Canales y Líneas Telefónicas</h1>
+            <p class="text-muted">Líneas de WhatsApp asignadas a cada proveedor. La línea predeterminada atiende peticiones donde no se indique un canal.</p>
+          </div>
+          <button class="btn btn-primary" id="open-channel-modal-btn">+ Nueva Línea / Canal</button>
+        </header>
+
+        <div class="table-container card">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Nombre de Línea</th>
+                <th>Teléfono</th>
+                <th>Proveedor</th>
+                <th>Instancia / ID</th>
+                <th>Por Defecto</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="channels-table-body">
+              <tr><td colspan="6" class="text-center text-muted">Cargando canales...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Modal Provider -->
+  <div id="provider-modal" class="modal hidden">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="provider-modal-title">Nuevo Proveedor</h3>
+        <button class="close-modal">&times;</button>
+      </div>
+      <form id="provider-form">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Nombre del Proveedor</label>
+            <input type="text" id="p-name" placeholder="evolution-principal" required>
+          </div>
+          <div class="form-group">
+            <label>Tipo de Proveedor</label>
+            <select id="p-type" required>
+              <option value="evolution">Evolution API v2</option>
+              <option value="meta">Meta Cloud API (Vista previa)</option>
+              <option value="twilio">Twilio (Vista previa)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>URL Base</label>
+            <input type="url" id="p-url" placeholder="https://mi-evolution.ejemplo.com" required>
+          </div>
+          <div class="form-group">
+            <label>API Key / Token</label>
+            <input type="password" id="p-key" placeholder="••••••••" required>
+          </div>
+          <div id="provider-modal-error" class="alert error hidden"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary close-modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar Proveedor</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Channel -->
+  <div id="channel-modal" class="modal hidden">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="channel-modal-title">Nueva Línea / Canal</h3>
+        <button class="close-modal">&times;</button>
+      </div>
+      <form id="channel-form">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Nombre del Canal / Línea</label>
+            <input type="text" id="c-name" placeholder="trabajo, ventas, soporte" required>
+          </div>
+          <div class="form-group">
+            <label>Proveedor Asociado</label>
+            <select id="c-provider" required>
+              <option value="">Seleccione un proveedor...</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Número Telefónico (E.164)</label>
+            <input type="text" id="c-phone" placeholder="+18095551234">
+          </div>
+          <div class="form-group">
+            <label>ID / Nombre de Instancia (Evolution API)</label>
+            <input type="text" id="c-instance" placeholder="instancia-ventas">
+          </div>
+          <div class="form-group checkbox-group">
+            <label>
+              <input type="checkbox" id="c-default"> Marcar como Línea Predeterminada Global
+            </label>
+          </div>
+          <div id="channel-modal-error" class="alert error hidden"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary close-modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar Canal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/panel/app.js"></script>
+</body>
+</html>
