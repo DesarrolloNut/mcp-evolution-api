@@ -4,13 +4,11 @@
 FROM node:22-alpine AS builder
 WORKDIR /app
 
-# Install dependencies with a clean, reproducible install.
-# --ignore-scripts prevents the "prepare" lifecycle from running tsc before
-# the sources are copied.
+# Install dependencies with clean reproducible install
 COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts
 
-# Compile TypeScript -> dist/
+# Compile TypeScript and copy static web assets -> dist/
 COPY tsconfig.json ./
 COPY src ./src
 RUN npm run build
@@ -21,19 +19,25 @@ ENV NODE_ENV=production
 WORKDIR /app
 
 LABEL org.opencontainers.image.title="mcp-whatsapp" \
-      org.opencontainers.image.description="MCP server for Evolution API v2 (WhatsApp)" \
+      org.opencontainers.image.description="Unified Multi-Channel WhatsApp MCP Gateway (Evolution API, Meta, Twilio)" \
       org.opencontainers.image.source="https://github.com/DesarrolloNut/mcp-whatsapp" \
       org.opencontainers.image.licenses="MIT"
 
-# Production dependencies only (no TypeScript / devDeps).
+# Production dependencies only (including native better-sqlite3)
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 
-# Bring in the compiled output.
+# Bring in compiled output and web panel assets
 COPY --from=builder /app/dist ./dist
 
-# Run as the unprivileged "node" user shipped with the base image.
+# Prepare data directory for mounted SQLite persistence with proper node user permissions
+RUN mkdir -p /app/data && chown -R node:node /app/data
+
+# Declare persistence volume and expose default HTTP gateway port
+VOLUME ["/app/data"]
+EXPOSE 3000
+
+# Run as the unprivileged "node" user shipped with the base image
 USER node
 
-# The server speaks MCP over stdio; clients spawn it with `docker run -i`.
 ENTRYPOINT ["node", "dist/index.js"]

@@ -57,6 +57,22 @@ export function createProvidersRouter(
         return;
       }
 
+      // SSRF validation for baseUrl
+      try {
+        const parsedUrl = new URL(String(baseUrl).trim());
+        if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+          res.status(400).json({ error: 'baseUrl must use http or https protocol' });
+          return;
+        }
+        if (/^169\.254\.\d+\.\d+$/.test(parsedUrl.hostname)) {
+          res.status(400).json({ error: 'baseUrl cannot target link-local or cloud metadata endpoints' });
+          return;
+        }
+      } catch {
+        res.status(400).json({ error: 'Invalid baseUrl format' });
+        return;
+      }
+
       const created = await providerRepo.create({
         name: String(name).trim(),
         type,

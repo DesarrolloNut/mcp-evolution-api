@@ -1,7 +1,7 @@
 {
   "name": "mcp-whatsapp",
-  "version": "0.1.1",
-  "description": "MCP server for Evolution API v2 (WhatsApp) — full endpoint coverage over stdio.",
+  "version": "2.0.0",
+  "description": "Unified Multi-Channel WhatsApp MCP Gateway with Admin Panel, Provider Abstraction and Persistent Storage.",
   "type": "module",
   "repository": {
     "type": "git",
@@ -17,13 +17,15 @@
   "files": [
     "dist",
     "README.md",
-    ".env.example"
+    ".env.example",
+    "docker-compose.yml"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node -e \"require('node:fs').cpSync('src/interfaces/web/panel', 'dist/interfaces/web/panel', {recursive: true})\"",
     "watch": "tsc --watch",
     "start": "node dist/index.js",
     "smoke": "node dist/smoke.js",
+    "db:backup": "node dist/infrastructure/database/backup.js",
     "prepare": "npm run build"
   },
   "engines": {
@@ -32,9 +34,12 @@
   "keywords": [
     "mcp",
     "model-context-protocol",
-    "evolution-api",
     "whatsapp",
-    "baileys"
+    "evolution-api",
+    "meta-cloud-api",
+    "twilio",
+    "gateway",
+    "multichannel"
   ],
   "license": "MIT",
   "dependencies": {

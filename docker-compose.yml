@@ -1,0 +1,23 @@
+services:
+  mcp-whatsapp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ghcr.io/desarrollonut/mcp-whatsapp:latest
+    container_name: mcp-whatsapp
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-3000}:3000"
+    volumes:
+      # Persistent SQLite storage volume to prevent data loss across restarts
+      - ./data:/app/data
+    environment:
+      - WHATSAPP_MODE=server
+      - HTTP_PORT=3000
+      - HTTP_HOST=0.0.0.0
+      - SQLITE_PATH=/app/data/mcp-whatsapp.db
+      - MCP_API_TOKEN=${MCP_API_TOKEN:-}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
+      - ADMIN_JWT_SECRET=${ADMIN_JWT_SECRET:-}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-}
