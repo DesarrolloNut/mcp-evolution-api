@@ -221,7 +221,20 @@ export class BaileysSessionManager {
     // Capture initial sync history from phone
     socket.ev.on('messaging-history.set', (payload) => {
       if (!this.messageRepo) return;
-      const { chats, messages } = payload;
+      const { chats, messages, contacts } = payload;
+      if (contacts) {
+        for (const ct of contacts) {
+          if (!ct.id) continue;
+          const name = ct.name || ct.notify || undefined;
+          if (name) {
+            this.messageRepo.upsertChat(channelId, {
+              jid: ct.id,
+              name,
+              isGroup: ct.id.endsWith('@g.us'),
+            });
+          }
+        }
+      }
       if (chats) {
         for (const c of chats) {
           if (!c.id) continue;
@@ -242,6 +255,13 @@ export class BaileysSessionManager {
           const text = extractMessageText(m);
           const type = extractMessageType(m);
           const ts = m.messageTimestamp ? Number(m.messageTimestamp) * 1000 : Date.now();
+          if (!m.key.fromMe && m.pushName) {
+            this.messageRepo.upsertChat(channelId, {
+              jid: chatJid,
+              name: m.pushName,
+              isGroup: chatJid.endsWith('@g.us'),
+            });
+          }
           this.messageRepo.upsertMessage(channelId, {
             id: msgId,
             chatJid,
@@ -251,6 +271,22 @@ export class BaileysSessionManager {
             textContent: text,
             timestamp: ts,
             raw: m,
+          });
+        }
+      }
+    });
+
+    // Capture dynamic contacts updates
+    socket.ev.on('contacts.upsert', (contacts) => {
+      if (!this.messageRepo) return;
+      for (const ct of contacts) {
+        if (!ct.id) continue;
+        const name = ct.name || ct.notify || undefined;
+        if (name) {
+          this.messageRepo.upsertChat(channelId, {
+            jid: ct.id,
+            name,
+            isGroup: ct.id.endsWith('@g.us'),
           });
         }
       }
@@ -281,6 +317,13 @@ export class BaileysSessionManager {
         const text = extractMessageText(m);
         const type = extractMessageType(m);
         const ts = m.messageTimestamp ? Number(m.messageTimestamp) * 1000 : Date.now();
+        if (!m.key.fromMe && m.pushName) {
+          this.messageRepo.upsertChat(channelId, {
+            jid: chatJid,
+            name: m.pushName,
+            isGroup: chatJid.endsWith('@g.us'),
+          });
+        }
         this.messageRepo.upsertMessage(channelId, {
           id: msgId,
           chatJid,

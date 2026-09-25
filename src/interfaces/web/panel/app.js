@@ -324,10 +324,14 @@
       dashRecentChats.innerHTML = top5
         .map((c) => {
           const isGroup = c.isGroup || (c.id && c.id.endsWith('@g.us'));
-          const displayName = escapeHtml(c.name || c.phoneNumber || (c.id ? c.id.split('@')[0] : 'Desconocido'));
+          const rawName = c.name || c.phoneNumber || (c.id ? c.id.replace(/@s\.whatsapp\.net|@lid|@g\.us/g, '') : 'Desconocido');
+          const displayName = escapeHtml(rawName);
           const avatar = isGroup ? '👥' : '👤';
-          const timeStr = formatChatTime(c.lastMessageTimestamp);
-          const preview = escapeHtml(c.lastMessage || 'Conversación activa');
+          const timeStr = formatChatTime(c.lastMessageTimestamp || c.timestamp);
+          const lastMsgText = typeof c.lastMessage === 'string'
+            ? c.lastMessage
+            : (c.lastMessage?.text || c.lastMessageText || 'Conversación activa');
+          const preview = escapeHtml(lastMsgText);
           const channelName = escapeHtml(c.channel || res.channel || 'predeterminado');
           const unreadBadge = c.unreadCount && c.unreadCount > 0
             ? `<span class="unread-pill">${c.unreadCount}</span>`
@@ -418,8 +422,8 @@
       const name = (c.name || '').toLowerCase();
       const id = (c.id || '').toLowerCase();
       const phone = (c.phoneNumber || '').toLowerCase();
-      const lastMsg = (c.lastMessage || '').toLowerCase();
-      return name.includes(query) || id.includes(query) || phone.includes(query) || lastMsg.includes(query);
+      const lastMsg = (typeof c.lastMessage === 'string' ? c.lastMessage : (c.lastMessage?.text || '')) || '';
+      return name.includes(query) || id.includes(query) || phone.includes(query) || lastMsg.toLowerCase().includes(query);
     });
 
     if (filtered.length === 0) {
@@ -434,10 +438,14 @@
     chatsListContainer.innerHTML = filtered
       .map((c) => {
         const isGroup = c.isGroup || (c.id && c.id.endsWith('@g.us'));
-        const displayName = escapeHtml(c.name || c.phoneNumber || (c.id ? c.id.split('@')[0] : 'Desconocido'));
+        const rawName = c.name || c.phoneNumber || (c.id ? c.id.replace(/@s\.whatsapp\.net|@lid|@g\.us/g, '') : 'Desconocido');
+        const displayName = escapeHtml(rawName);
         const avatar = isGroup ? '👥' : '👤';
-        const timeStr = formatChatTime(c.lastMessageTimestamp);
-        const preview = escapeHtml(c.lastMessage || 'Sin mensajes previos');
+        const timeStr = formatChatTime(c.lastMessageTimestamp || c.timestamp);
+        const lastMsgText = typeof c.lastMessage === 'string'
+          ? c.lastMessage
+          : (c.lastMessage?.text || c.lastMessageText || 'Sin mensajes previos');
+        const preview = escapeHtml(lastMsgText);
         const channelName = escapeHtml(c.channel || '');
         const isActive = activeSelectedChatId === c.id;
         const unreadBadge = c.unreadCount && c.unreadCount > 0
@@ -488,7 +496,8 @@
 
     const chatObj = cachedChats.find((c) => c.id === chatId);
     const isGroup = chatObj ? (chatObj.isGroup || chatObj.id.endsWith('@g.us')) : chatId.endsWith('@g.us');
-    const displayName = chatObj ? (chatObj.name || chatObj.phoneNumber || chatObj.id.split('@')[0]) : chatId.split('@')[0];
+    const rawName = chatObj?.name || chatObj?.phoneNumber || (chatId ? chatId.replace(/@s\.whatsapp\.net|@lid|@g\.us/g, '') : 'Desconocido');
+    const displayName = escapeHtml(rawName);
 
     if (chatViewerEmpty) chatViewerEmpty.classList.add('hidden');
     if (chatViewerActive) chatViewerActive.classList.remove('hidden');
@@ -505,7 +514,9 @@
     try {
       const queryChannel = activeSelectedChannel ? `&channel=${encodeURIComponent(activeSelectedChannel)}` : '';
       const res = await api(`/api/messages?chatId=${encodeURIComponent(chatId)}&count=50${queryChannel}`);
-      renderMessages(res.messages || []);
+      // Sort chronologically (oldest at top, newest at bottom)
+      const sorted = (res.messages || []).slice().sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+      renderMessages(sorted);
     } catch (err) {
       if (chatMessagesStream) {
         chatMessagesStream.innerHTML = `<div class="text-center text-muted p-4">Error al cargar mensajes: ${err.message}</div>`;

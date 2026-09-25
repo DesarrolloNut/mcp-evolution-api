@@ -17,7 +17,7 @@ import { toCheckNumberResult, toGroupInfo } from './mapper.js';
 import { WASocket, AnyMessageContent } from '@whiskeysockets/baileys';
 
 function normalizeJid(recipient: string): string {
-  let clean = recipient.replace(/[^0-9@.-]/g, '');
+  let clean = recipient.trim().replace(/[^0-9a-zA-Z@._-]/g, '');
   if (clean.includes('@')) {
     return clean;
   }
@@ -56,8 +56,8 @@ export class BaileysAdapter implements IWhatsAppProvider, IGroupProvider {
 
   private async resolveDestinationJid(sock: WASocket, recipient: string): Promise<string> {
     const rawJid = normalizeJid(recipient);
-    // If it's a group, broadcast or already formatted special JID, return as is
-    if (rawJid.includes('@g.us') || rawJid.includes('@broadcast') || rawJid.includes('@newsletter')) {
+    // If it's a group, broadcast, @lid or already formatted special JID, return as is
+    if (rawJid.includes('@g.us') || rawJid.includes('@broadcast') || rawJid.includes('@newsletter') || rawJid.includes('@lid')) {
       return rawJid;
     }
 
