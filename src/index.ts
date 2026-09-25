@@ -120,7 +120,7 @@ async function startServerMode(): Promise<void> {
   );
 
   // Direct Messaging & Chats REST API
-  app.use('/api', createMessagingRestRouter(channelResolver, config.mcpApiToken));
+  app.use('/api', createMessagingRestRouter(channelResolver, config.mcpApiToken, adminAuthService));
 
   // MCP Protocol Endpoints (Streamable HTTP / SSE)
   app.all('/mcp', mcpAuthMiddleware, (req, res) => {

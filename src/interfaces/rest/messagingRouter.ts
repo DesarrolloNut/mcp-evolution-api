@@ -3,6 +3,7 @@ import { ChannelResolver } from '../../application/services/channelResolver.js';
 import { createApiAuthMiddleware } from './middleware/apiAuth.js';
 import { IGroupProvider } from '../../domain/ports/IGroupProvider.js';
 import { ProviderCapabilityError } from '../../domain/errors.js';
+import { AdminAuthService } from '../../application/services/adminAuth.js';
 
 function assertGroupProvider(adapter: unknown, providerType: string): asserts adapter is IGroupProvider {
   if (
@@ -14,9 +15,13 @@ function assertGroupProvider(adapter: unknown, providerType: string): asserts ad
   }
 }
 
-export function createMessagingRestRouter(resolver: ChannelResolver, apiToken?: string): Router {
+export function createMessagingRestRouter(
+  resolver: ChannelResolver,
+  apiToken?: string,
+  adminAuthService?: AdminAuthService
+): Router {
   const router = Router();
-  const authMiddleware = createApiAuthMiddleware(apiToken);
+  const authMiddleware = createApiAuthMiddleware(apiToken, adminAuthService);
 
   // Apply API authentication to all messaging endpoints
   router.use(authMiddleware);
