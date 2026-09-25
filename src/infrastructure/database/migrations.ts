@@ -85,6 +85,34 @@ const migrations: Migration[] = [
       `);
     },
   },
+  {
+    name: '003_jid_mappings_and_phone',
+    up: (db: Database.Database) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS jid_mappings (
+          channel_id TEXT NOT NULL,
+          lid TEXT NOT NULL,
+          pn_jid TEXT NOT NULL,
+          phone_number TEXT,
+          name TEXT,
+          updated_at TEXT NOT NULL,
+          PRIMARY KEY (channel_id, lid)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_jid_map_pn ON jid_mappings(channel_id, pn_jid);
+        CREATE INDEX IF NOT EXISTS idx_jid_map_phone ON jid_mappings(channel_id, phone_number);
+      `);
+
+      const tableInfo = db.prepare("PRAGMA table_info(chats)").all() as Array<{ name: string }>;
+      const colNames = new Set(tableInfo.map((c) => c.name));
+      if (!colNames.has('phone_number')) {
+        db.exec(`ALTER TABLE chats ADD COLUMN phone_number TEXT;`);
+      }
+      if (!colNames.has('lid')) {
+        db.exec(`ALTER TABLE chats ADD COLUMN lid TEXT;`);
+      }
+    },
+  },
 ];
 
 export function runMigrations(db: Database.Database): void {

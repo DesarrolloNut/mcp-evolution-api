@@ -566,6 +566,11 @@
       .join('');
 
     chatMessagesStream.scrollTop = chatMessagesStream.scrollHeight;
+    setTimeout(() => {
+      if (chatMessagesStream) {
+        chatMessagesStream.scrollTop = chatMessagesStream.scrollHeight;
+      }
+    }, 40);
   }
 
   // Search Filter Handler

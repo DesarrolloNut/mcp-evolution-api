@@ -226,6 +226,15 @@ export class BaileysSessionManager {
         for (const ct of contacts) {
           if (!ct.id) continue;
           const name = ct.name || ct.notify || undefined;
+          const lid = (ct as any).lid;
+          if (lid && ct.id.includes('@s.whatsapp.net')) {
+            this.messageRepo.recordJidMapping(channelId, {
+              lid,
+              pnJid: ct.id,
+              name,
+              phoneNumber: ct.id.replace(/[^0-9]/g, ''),
+            });
+          }
           if (name) {
             this.messageRepo.upsertChat(channelId, {
               jid: ct.id,
@@ -282,6 +291,15 @@ export class BaileysSessionManager {
       for (const ct of contacts) {
         if (!ct.id) continue;
         const name = ct.name || ct.notify || undefined;
+        const lid = (ct as any).lid;
+        if (lid && ct.id.includes('@s.whatsapp.net')) {
+          this.messageRepo.recordJidMapping(channelId, {
+            lid,
+            pnJid: ct.id,
+            name,
+            phoneNumber: ct.id.replace(/[^0-9]/g, ''),
+          });
+        }
         if (name) {
           this.messageRepo.upsertChat(channelId, {
             jid: ct.id,
