@@ -17,9 +17,13 @@ import { toCheckNumberResult, toGroupInfo } from './mapper.js';
 import { WASocket, AnyMessageContent } from '@whiskeysockets/baileys';
 
 function normalizeJid(recipient: string): string {
-  const clean = recipient.replace(/[^0-9@.-]/g, '');
+  let clean = recipient.replace(/[^0-9@.-]/g, '');
   if (clean.includes('@')) {
     return clean;
+  }
+  // Auto-prepend '1' if a 10-digit Dominican Republic / NANP number is entered (809, 829, 849)
+  if (clean.length === 10 && /^(809|829|849)/.test(clean)) {
+    clean = '1' + clean;
   }
   return `${clean}@s.whatsapp.net`;
 }
@@ -50,6 +54,41 @@ export class BaileysAdapter implements IWhatsAppProvider, IGroupProvider {
     return socket;
   }
 
+  private async resolveDestinationJid(sock: WASocket, recipient: string): Promise<string> {
+    const rawJid = normalizeJid(recipient);
+    // If it's a group, broadcast or already formatted special JID, return as is
+    if (rawJid.includes('@g.us') || rawJid.includes('@broadcast') || rawJid.includes('@newsletter')) {
+      return rawJid;
+    }
+
+    let cleanNumber = recipient.replace(/[^0-9]/g, '');
+    if (cleanNumber.length === 10 && /^(809|829|849)/.test(cleanNumber)) {
+      cleanNumber = '1' + cleanNumber;
+    }
+
+    if (cleanNumber.length >= 7) {
+      try {
+        const results = await sock.onWhatsApp(cleanNumber);
+        const checked = results && results.length > 0 ? results[0] : undefined;
+        if (checked && checked.exists && checked.jid) {
+          return checked.jid;
+        }
+        if (checked && checked.exists === false) {
+          throw new Error(
+            `El número +${cleanNumber} no está registrado en WhatsApp. Verifica si el código de país o el número tiene algún error.`
+          );
+        }
+      } catch (err) {
+        if ((err as Error).message.includes('no está registrado en WhatsApp')) {
+          throw err;
+        }
+        // Fallback to normalized JID if check timed out
+      }
+    }
+
+    return rawJid;
+  }
+
   async testConnection(): Promise<{ success: boolean; message: string }> {
     return {
       success: true,
@@ -59,7 +98,7 @@ export class BaileysAdapter implements IWhatsAppProvider, IGroupProvider {
 
   async sendText(params: SendTextParams, channel: Channel): Promise<SendResult> {
     const sock = this.getConnectedSocket(channel);
-    const jid = normalizeJid(params.recipient);
+    const jid = await this.resolveDestinationJid(sock, params.recipient);
 
     const messageContent: AnyMessageContent = {
       text: params.text,
@@ -80,7 +119,7 @@ export class BaileysAdapter implements IWhatsAppProvider, IGroupProvider {
 
   async sendMedia(params: SendMediaParams, channel: Channel): Promise<SendResult> {
     const sock = this.getConnectedSocket(channel);
-    const jid = normalizeJid(params.recipient);
+    const jid = await this.resolveDestinationJid(sock, params.recipient);
 
     let mediaBuffer: Buffer | undefined;
     if (params.mediaBase64) {
@@ -130,7 +169,7 @@ export class BaileysAdapter implements IWhatsAppProvider, IGroupProvider {
 
   async sendLocation(params: SendLocationParams, channel: Channel): Promise<SendResult> {
     const sock = this.getConnectedSocket(channel);
-    const jid = normalizeJid(params.recipient);
+    const jid = await this.resolveDestinationJid(sock, params.recipient);
 
     const messageContent: AnyMessageContent = {
       location: {
@@ -152,7 +191,7 @@ export class BaileysAdapter implements IWhatsAppProvider, IGroupProvider {
 
   async sendContact(params: SendContactParams, channel: Channel): Promise<SendResult> {
     const sock = this.getConnectedSocket(channel);
-    const jid = normalizeJid(params.recipient);
+    const jid = await this.resolveDestinationJid(sock, params.recipient);
 
     const vcard =
       'BEGIN:VCARD\n' +
@@ -179,7 +218,7 @@ export class BaileysAdapter implements IWhatsAppProvider, IGroupProvider {
 
   async sendReaction(params: SendReactionParams, channel: Channel): Promise<SendResult> {
     const sock = this.getConnectedSocket(channel);
-    const jid = normalizeJid(params.recipient);
+    const jid = await this.resolveDestinationJid(sock, params.recipient);
 
     const messageContent: AnyMessageContent = {
       react: {
