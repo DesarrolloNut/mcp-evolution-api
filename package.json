@@ -24,6 +24,7 @@
     "build": "tsc && node -e \"require('node:fs').cpSync('src/interfaces/web/panel', 'dist/interfaces/web/panel', {recursive: true}); require('node:fs').cpSync('src/interfaces/docs', 'dist/interfaces/docs', {recursive: true})\"",
     "watch": "tsc --watch",
     "start": "node dist/index.js",
+    "cli": "node dist/cli.js",
     "smoke": "node dist/smoke.js",
     "db:backup": "node dist/infrastructure/database/backup.js",
     "prepare": "npm run build"
