@@ -20,6 +20,7 @@
   const providerModal = document.getElementById('provider-modal');
   const channelModal = document.getElementById('channel-modal');
   const qrModal = document.getElementById('qr-modal');
+  const sendMessageModal = document.getElementById('send-message-modal');
   const openProviderModalBtn = document.getElementById('open-provider-modal-btn');
   const openChannelModalBtn = document.getElementById('open-channel-modal-btn');
   const closeButtons = document.querySelectorAll('.close-modal');
@@ -27,6 +28,7 @@
   // Forms & Inputs
   const providerForm = document.getElementById('provider-form');
   const channelForm = document.getElementById('channel-form');
+  const sendMessageForm = document.getElementById('send-message-form');
   const providerTypeSelect = document.getElementById('p-type');
   const providerExternalFields = document.getElementById('p-external-fields');
   const providerBaileysNote = document.getElementById('p-baileys-note');
@@ -36,6 +38,14 @@
   const providerModalError = document.getElementById('provider-modal-error');
   const channelModalError = document.getElementById('channel-modal-error');
 
+  // Send Message Modal Elements
+  const smModalSubtitle = document.getElementById('sm-modal-subtitle');
+  const smChannelNameInput = document.getElementById('sm-channel-name');
+  const smRecipientInput = document.getElementById('sm-recipient');
+  const smTextInput = document.getElementById('sm-text');
+  const smModalAlert = document.getElementById('sm-modal-alert');
+  const smSubmitBtn = document.getElementById('sm-submit-btn');
+  const smBtnText = document.getElementById('sm-btn-text');
   // QR Modal Elements
   const qrModalTitle = document.getElementById('qr-modal-title');
   const qrModalSubtitle = document.getElementById('qr-modal-subtitle');
@@ -129,19 +139,21 @@
 
   // Tab Navigation
   navItems.forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const tabId = btn.getAttribute('data-tab');
-      navItems.forEach((b) => b.classList.remove('active'));
-      tabPanes.forEach((p) => p.classList.remove('active'));
+    if (btn.tagName.toLowerCase() === 'button') {
+      btn.addEventListener('click', () => {
+        const tabId = btn.getAttribute('data-tab');
+        navItems.forEach((b) => b.classList.remove('active'));
+        tabPanes.forEach((p) => p.classList.remove('active'));
 
-      btn.classList.add('active');
-      const targetPane = document.getElementById(`tab-${tabId}`);
-      if (targetPane) targetPane.classList.add('active');
+        btn.classList.add('active');
+        const targetPane = document.getElementById(`tab-${tabId}`);
+        if (targetPane) targetPane.classList.add('active');
 
-      if (tabId === 'dashboard') loadDashboard();
-      if (tabId === 'providers') loadProviders();
-      if (tabId === 'channels') loadChannels();
-    });
+        if (tabId === 'dashboard') loadDashboard();
+        if (tabId === 'providers') loadProviders();
+        if (tabId === 'channels') loadChannels();
+      });
+    }
   });
 
   // Modal Controls
@@ -162,9 +174,11 @@
 
   function closeAllModals() {
     stopQrPolling();
+    closeAllDropdowns();
     providerModal.classList.add('hidden');
     channelModal.classList.add('hidden');
     qrModal.classList.add('hidden');
+    if (sendMessageModal) sendMessageModal.classList.add('hidden');
   }
 
   closeButtons.forEach((btn) => {
@@ -295,8 +309,36 @@
             }
           </td>
           <td>
-            ${isBaileys ? `<button class="btn btn-secondary btn-sm" onclick="window.openQrModal('${c.id}', '${escapeHtml(c.name)}')">📱 Vincular QR</button> ` : ''}
-            ${c.isActive ? `<button class="btn btn-danger btn-sm" onclick="window.deleteChannel('${c.id}')">Desactivar</button>` : '<span class="text-muted">Inactivo</span>'}
+            <div class="dropdown">
+              <button class="btn-dropdown-trigger" onclick="window.toggleActionMenu(event, '${c.id}')" title="Acciones de línea">⋮</button>
+              <div class="dropdown-menu hidden" id="dropdown-menu-${c.id}">
+                <button class="dropdown-item" onclick="window.openSendMessageModal('${escapeHtml(c.name)}', '${escapeHtml(c.phoneNumber || '')}')">
+                  💬 Enviar Mensaje
+                </button>
+                ${
+                  isBaileys
+                    ? `<button class="dropdown-item" onclick="window.openQrModal('${c.id}', '${escapeHtml(c.name)}')">
+                        📱 Vincular / Estado QR
+                      </button>`
+                    : ''
+                }
+                ${
+                  !c.isDefault
+                    ? `<button class="dropdown-item" onclick="window.setDefaultChannel('${c.id}')">
+                        ★ Hacer Predeterminada
+                      </button>`
+                    : ''
+                }
+                <div class="dropdown-divider"></div>
+                ${
+                  c.isActive
+                    ? `<button class="dropdown-item danger" onclick="window.deleteChannel('${c.id}')">
+                        🗑️ Desactivar Línea
+                      </button>`
+                    : `<span class="dropdown-item text-muted">Línea Inactiva</span>`
+                }
+              </div>
+            </div>
           </td>
         </tr>
       `;
@@ -310,6 +352,84 @@
         .filter((p) => p.isActive)
         .map((p) => `<option value="${p.id}">${escapeHtml(p.name)} (${p.type === 'baileys' ? 'Baileys Embebido' : p.type})</option>`)
         .join('');
+  }
+
+  // Dropdown Menu Controls
+  function closeAllDropdowns() {
+    document.querySelectorAll('.dropdown-menu').forEach((m) => m.classList.add('hidden'));
+    document.querySelectorAll('.btn-dropdown-trigger').forEach((b) => b.classList.remove('active'));
+  }
+
+  window.toggleActionMenu = (e, channelId) => {
+    e.stopPropagation();
+    const menu = document.getElementById(`dropdown-menu-${channelId}`);
+    const trigger = e.currentTarget;
+    const isHidden = menu.classList.contains('hidden');
+
+    closeAllDropdowns();
+
+    if (isHidden) {
+      menu.classList.remove('hidden');
+      trigger.classList.add('active');
+    }
+  };
+
+  document.addEventListener('click', () => {
+    closeAllDropdowns();
+  });
+
+  // Send Message Modal Handling
+  window.openSendMessageModal = (channelName, phoneNumber) => {
+    closeAllDropdowns();
+    smChannelNameInput.value = channelName;
+    smModalSubtitle.textContent = `Desde línea: ${channelName}${phoneNumber ? ` (${phoneNumber})` : ''}`;
+    smRecipientInput.value = '';
+    smTextInput.value = '';
+    smModalAlert.className = 'alert hidden';
+    smModalAlert.textContent = '';
+    smSubmitBtn.disabled = false;
+    smBtnText.textContent = '🚀 Enviar Mensaje';
+
+    sendMessageModal.classList.remove('hidden');
+    smRecipientInput.focus();
+  };
+
+  if (sendMessageForm) {
+    sendMessageForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      smModalAlert.className = 'alert hidden';
+
+      const channel = smChannelNameInput.value.trim();
+      const recipient = smRecipientInput.value.trim();
+      const text = smTextInput.value.trim();
+
+      if (!recipient || !text) {
+        smModalAlert.className = 'alert error';
+        smModalAlert.textContent = 'Por favor completa el destinatario y el mensaje.';
+        return;
+      }
+
+      smSubmitBtn.disabled = true;
+      smBtnText.textContent = 'Enviando mensaje...';
+
+      try {
+        const res = await api('/api/messages/text', {
+          method: 'POST',
+          body: JSON.stringify({ recipient, text, channel }),
+        });
+
+        smModalAlert.className = 'alert success';
+        const msgId = res.result?.messageId || 'OK';
+        smModalAlert.innerHTML = `✅ <strong>¡Mensaje Enviado con Éxito!</strong><br><small class="text-muted">ID de entrega: ${escapeHtml(msgId)}</small>`;
+        smTextInput.value = '';
+      } catch (err) {
+        smModalAlert.className = 'alert error';
+        smModalAlert.textContent = `❌ Error al enviar mensaje: ${err.message}`;
+      } finally {
+        smSubmitBtn.disabled = false;
+        smBtnText.textContent = '🚀 Enviar Mensaje';
+      }
+    });
   }
 
   // Provider Form Submit
@@ -375,6 +495,7 @@
   }
 
   window.openQrModal = async (channelId, channelName) => {
+    closeAllDropdowns();
     activeQrChannelId = channelId;
     stopQrPolling();
 

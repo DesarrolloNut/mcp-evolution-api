@@ -40,7 +40,18 @@ async function runGatewaySmoke(): Promise<void> {
   const registry = buildUnifiedRegistry();
   console.log(`✅ Unified MCP Tool Registry loaded: ${registry.tools.length} tools registered.`);
 
-  // 4. Verify Baileys Direct Provider & SessionManager
+  // 4. Verify OpenAPI 3.1 Specification
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const openapiPath = path.resolve('src/interfaces/docs/openapi.json');
+  if (fs.existsSync(openapiPath)) {
+    const raw = fs.readFileSync(openapiPath, 'utf8');
+    const parsed = JSON.parse(raw);
+    const pathCount = Object.keys(parsed.paths || {}).length;
+    console.log(`✅ OpenAPI 3.1 Spec verified (${pathCount} paths documented).`);
+  }
+
+  // 5. Verify Baileys Direct Provider & SessionManager
   const { BaileysSessionManager } = await import('./infrastructure/providers/baileys/sessionManager.js');
   const sessionManager = BaileysSessionManager.getInstance();
   const mockBaileysStatus = sessionManager.getStatus('smoke-test-channel');

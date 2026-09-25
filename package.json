@@ -21,7 +21,7 @@
     "docker-compose.yml"
   ],
   "scripts": {
-    "build": "tsc && node -e \"require('node:fs').cpSync('src/interfaces/web/panel', 'dist/interfaces/web/panel', {recursive: true})\"",
+    "build": "tsc && node -e \"require('node:fs').cpSync('src/interfaces/web/panel', 'dist/interfaces/web/panel', {recursive: true}); require('node:fs').cpSync('src/interfaces/docs', 'dist/interfaces/docs', {recursive: true})\"",
     "watch": "tsc --watch",
     "start": "node dist/index.js",
     "smoke": "node dist/smoke.js",

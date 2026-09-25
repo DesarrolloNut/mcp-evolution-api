@@ -1,6 +1,9 @@
 # Referencia de la REST API Directa de Mensajería
 
 Además de actuar como servidor para agentes IA mediante el protocolo MCP (`/mcp`), `mcp-whatsapp` expone una **REST API tradicional** en `/api` para enviar y consultar mensajes directamente desde cualquier backend, script, webhook o aplicación cliente con peticiones HTTP estándar.
+ 
+> [!TIP]
+> **Explorador Interactivo Swagger UI:** Puedes probar todas las rutas interactivamente en tu navegador accediendo a [`http://localhost:3000/docs`](http://localhost:3000/docs). El archivo de esquema OpenAPI 3.1 en formato JSON está disponible en [`http://localhost:3000/openapi.json`](http://localhost:3000/openapi.json).
 
 ---
 

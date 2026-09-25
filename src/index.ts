@@ -96,6 +96,13 @@ async function startServerMode(): Promise<void> {
   const panelPath = path.resolve(__dirname, 'interfaces/web/panel');
   app.use('/panel', express.static(panelPath));
 
+  // Interactive Swagger / OpenAPI Documentation
+  const docsPath = path.resolve(__dirname, 'interfaces/docs');
+  app.use('/docs', express.static(docsPath));
+  app.get('/openapi.json', (_req, res) => {
+    res.sendFile(path.join(docsPath, 'openapi.json'));
+  });
+
   // Root redirect to panel
   app.get('/', (_req, res) => {
     res.redirect('/panel');
@@ -123,10 +130,11 @@ async function startServerMode(): Promise<void> {
   // Start HTTP Server
   app.listen(config.httpPort, config.httpHost, () => {
     console.error(`[${PKG_NAME} v${PKG_VERSION}] HTTP gateway active on http://${config.httpHost}:${config.httpPort}`);
-    console.error(`  - MCP Endpoint:  http://${config.httpHost}:${config.httpPort}/mcp`);
-    console.error(`  - REST API:      http://${config.httpHost}:${config.httpPort}/api`);
-    console.error(`  - Admin Panel:   http://${config.httpHost}:${config.httpPort}/panel`);
-    console.error(`  - Database:      ${config.sqlitePath} (WAL mode)`);
+    console.error(`  - MCP Endpoint:      http://${config.httpHost}:${config.httpPort}/mcp`);
+    console.error(`  - REST API:          http://${config.httpHost}:${config.httpPort}/api`);
+    console.error(`  - API Docs (Swagger):http://${config.httpHost}:${config.httpPort}/docs`);
+    console.error(`  - Admin Panel:       http://${config.httpHost}:${config.httpPort}/panel`);
+    console.error(`  - Database:          ${config.sqlitePath} (WAL mode)`);
   });
 }
 

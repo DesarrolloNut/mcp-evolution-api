@@ -1,0 +1,461 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "MCP WhatsApp Gateway REST API",
+    "version": "2.0.0",
+    "description": "API REST unificada y multicanal de WhatsApp para agentes de IA y aplicaciones cliente. Soporta WhatsApp Web directo (Baileys), Evolution API v2, Meta Cloud API y Twilio."
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Servidor actual"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Mensajería",
+      "description": "Envío y consulta de mensajes de texto, multimedia, ubicación, contactos y reacciones"
+    },
+    {
+      "name": "Chats y Verificación",
+      "description": "Gestión de conversaciones y verificación de números en WhatsApp"
+    },
+    {
+      "name": "Grupos",
+      "description": "Creación y administración de grupos de WhatsApp"
+    },
+    {
+      "name": "Sesión WhatsApp Web (Baileys)",
+      "description": "Control de socket, generación de QR y estado de emparejamiento directo"
+    },
+    {
+      "name": "Administración",
+      "description": "Gestión de proveedores, canales / líneas y métricas del sistema"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Token Bearer configurado en MCP_API_TOKEN o JWT de administración"
+      },
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key",
+        "description": "API Key alternativa para peticiones REST"
+      }
+    },
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string" }
+        },
+        "required": ["error"]
+      },
+      "SendResult": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "channel": { "type": "string" },
+          "result": {
+            "type": "object",
+            "properties": {
+              "success": { "type": "boolean" },
+              "messageId": { "type": "string" },
+              "timestamp": { "type": "integer" }
+            }
+          }
+        }
+      },
+      "SendTextRequest": {
+        "type": "object",
+        "required": ["recipient", "text"],
+        "properties": {
+          "recipient": {
+            "type": "string",
+            "description": "Número telefónico del destinatario en formato E.164 (ej: 18095551234) o JID de grupo",
+            "example": "18095551234"
+          },
+          "text": {
+            "type": "string",
+            "description": "Texto del mensaje a enviar",
+            "example": "¡Hola! Este es un mensaje desde la API."
+          },
+          "channel": {
+            "type": "string",
+            "description": "Nombre de la línea/canal de origen (opcional, usa Default si se omite)",
+            "example": "ventas"
+          },
+          "delay": {
+            "type": "integer",
+            "description": "Retardo de simulación de escritura en milisegundos (ej: 1200)",
+            "example": 1000
+          },
+          "linkPreview": {
+            "type": "boolean",
+            "description": "Si es true, genera vista previa enriquecida para URLs en el texto",
+            "example": true
+          }
+        }
+      },
+      "SendMediaRequest": {
+        "type": "object",
+        "required": ["recipient", "mediaType"],
+        "properties": {
+          "recipient": { "type": "string", "example": "18095551234" },
+          "mediaType": {
+            "type": "string",
+            "enum": ["image", "video", "audio", "document", "sticker"],
+            "example": "image"
+          },
+          "mediaUrl": { "type": "string", "example": "https://ejemplo.com/foto.jpg" },
+          "mediaBase64": { "type": "string", "description": "Contenido del archivo en Base64" },
+          "caption": { "type": "string", "example": "Comprobante de envío" },
+          "fileName": { "type": "string", "example": "documento.pdf" },
+          "mimetype": { "type": "string", "example": "image/jpeg" },
+          "channel": { "type": "string", "example": "soporte" }
+        }
+      },
+      "SendLocationRequest": {
+        "type": "object",
+        "required": ["recipient", "latitude", "longitude"],
+        "properties": {
+          "recipient": { "type": "string", "example": "18095551234" },
+          "latitude": { "type": "number", "example": 18.4861 },
+          "longitude": { "type": "number", "example": -69.9312 },
+          "name": { "type": "string", "example": "Oficina Central" },
+          "address": { "type": "string", "example": "Av. Principal 123" },
+          "channel": { "type": "string" }
+        }
+      },
+      "SendContactRequest": {
+        "type": "object",
+        "required": ["recipient", "contactName", "contactPhone"],
+        "properties": {
+          "recipient": { "type": "string", "example": "18095551234" },
+          "contactName": { "type": "string", "example": "Juan Pérez" },
+          "contactPhone": { "type": "string", "example": "+18095559999" },
+          "channel": { "type": "string" }
+        }
+      },
+      "SendReactionRequest": {
+        "type": "object",
+        "required": ["recipient", "messageId", "reaction"],
+        "properties": {
+          "recipient": { "type": "string", "example": "18095551234" },
+          "messageId": { "type": "string", "example": "3EB0ABC123456789" },
+          "reaction": { "type": "string", "example": "👍" },
+          "channel": { "type": "string" }
+        }
+      }
+    }
+  },
+  "security": [
+    { "BearerAuth": [] },
+    { "ApiKeyAuth": [] }
+  ],
+  "paths": {
+    "/api/messages/text": {
+      "post": {
+        "tags": ["Mensajería"],
+        "summary": "Enviar Mensaje de Texto",
+        "description": "Envía un mensaje de texto plano con soporte para menciones, enlaces y simulación de escritura.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SendTextRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Mensaje enviado exitosamente",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SendResult" }
+              }
+            }
+          },
+          "400": { "description": "Datos de entrada inválidos" },
+          "401": { "description": "No autorizado" }
+        }
+      }
+    },
+    "/api/messages/media": {
+      "post": {
+        "tags": ["Mensajería"],
+        "summary": "Enviar Archivo Multimedia",
+        "description": "Envía imágenes, videos, audios, documentos o stickers vía URL o base64.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SendMediaRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Multimedia enviado con éxito",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SendResult" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/messages/location": {
+      "post": {
+        "tags": ["Mensajería"],
+        "summary": "Enviar Ubicación GPS",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SendLocationRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Ubicación enviada exitosamente" }
+        }
+      }
+    },
+    "/api/messages/contact": {
+      "post": {
+        "tags": ["Mensajería"],
+        "summary": "Enviar Tarjeta de Contacto",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SendContactRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Contacto enviado exitosamente" }
+        }
+      }
+    },
+    "/api/messages/reaction": {
+      "post": {
+        "tags": ["Mensajería"],
+        "summary": "Reaccionar a un Mensaje con Emoji",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SendReactionRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Reacción aplicada exitosamente" }
+        }
+      }
+    },
+    "/api/messages": {
+      "get": {
+        "tags": ["Mensajería"],
+        "summary": "Consultar Historial de Mensajes",
+        "parameters": [
+          { "name": "chatId", "in": "query", "required": true, "schema": { "type": "string" }, "example": "18095551234@s.whatsapp.net" },
+          { "name": "count", "in": "query", "schema": { "type": "integer", "default": 20 } },
+          { "name": "channel", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Lista de mensajes del chat" }
+        }
+      }
+    },
+    "/api/chats": {
+      "get": {
+        "tags": ["Chats y Verificación"],
+        "summary": "Listar Conversaciones Activas",
+        "parameters": [
+          { "name": "channel", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Lista de chats recientes" }
+        }
+      }
+    },
+    "/api/chats/check-number/{phone}": {
+      "get": {
+        "tags": ["Chats y Verificación"],
+        "summary": "Verificar si un Número está en WhatsApp",
+        "parameters": [
+          { "name": "phone", "in": "path", "required": true, "schema": { "type": "string" }, "example": "18095551234" },
+          { "name": "channel", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resultado de verificación",
+            "content": {
+              "application/json": {
+                "example": {
+                  "channel": "demo1",
+                  "result": { "exists": true, "jid": "18095551234@s.whatsapp.net", "number": "18095551234" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/groups": {
+      "post": {
+        "tags": ["Grupos"],
+        "summary": "Crear un Nuevo Grupo",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["subject", "participants"],
+                "properties": {
+                  "subject": { "type": "string", "example": "Grupo Soporte" },
+                  "participants": { "type": "array", "items": { "type": "string" }, "example": ["18095551234"] },
+                  "channel": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Grupo creado exitosamente" }
+        }
+      }
+    },
+    "/api/groups/{jid}": {
+      "get": {
+        "tags": ["Grupos"],
+        "summary": "Obtener Información y Miembros de un Grupo",
+        "parameters": [
+          { "name": "jid", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "channel", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Detalles del grupo" }
+        }
+      },
+      "delete": {
+        "tags": ["Grupos"],
+        "summary": "Abandonar un Grupo",
+        "parameters": [
+          { "name": "jid", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "channel", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Grupo abandonado con éxito" }
+        }
+      }
+    },
+    "/api/groups/{jid}/participants": {
+      "post": {
+        "tags": ["Grupos"],
+        "summary": "Administrar Participantes del Grupo",
+        "parameters": [
+          { "name": "jid", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["action", "participants"],
+                "properties": {
+                  "action": { "type": "string", "enum": ["add", "remove", "promote", "demote"] },
+                  "participants": { "type": "array", "items": { "type": "string" } },
+                  "channel": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Participantes actualizados" }
+        }
+      }
+    },
+    "/api/admin/channels/{id}/session/start": {
+      "post": {
+        "tags": ["Sesión WhatsApp Web (Baileys)"],
+        "summary": "Iniciar o Reconectar Sesión de Canal",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "forceNew": { "type": "boolean", "description": "Forzar reinicio limpio y nuevo código QR" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Estado de inicio de sesión retornado" }
+        }
+      }
+    },
+    "/api/admin/channels/{id}/session/qr": {
+      "get": {
+        "tags": ["Sesión WhatsApp Web (Baileys)"],
+        "summary": "Obtener Código QR y Estado en Tiempo Real",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Estado de la sesión y Data URL PNG del QR",
+            "content": {
+              "application/json": {
+                "example": {
+                  "channelId": "ch-123",
+                  "status": "qr_ready",
+                  "qrDataUrl": "data:image/png;base64,...",
+                  "userPhone": null,
+                  "isConnected": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/channels/{id}/session/logout": {
+      "post": {
+        "tags": ["Sesión WhatsApp Web (Baileys)"],
+        "summary": "Cerrar Sesión y Desvincular Canal",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Sesión desconectada y credenciales eliminadas" }
+        }
+      }
+    },
+    "/api/admin/dashboard": {
+      "get": {
+        "tags": ["Administración"],
+        "summary": "Métricas y Estado del Sistema",
+        "responses": {
+          "200": { "description": "Estadísticas del gateway y canal predeterminado" }
+        }
+      }
+    }
+  }
+}

@@ -39,13 +39,25 @@
 
 ### 2.3 Gestión de Canales / Líneas Telefónicas (Channels)
 - **Registrar Línea:** Asocia un número telefónico o instancia al proveedor configurado.
-- **Vincular WhatsApp Web (Código QR):** Para canales asociados al proveedor `baileys`, el panel muestra el botón `📱 Vincular QR`. Al hacer clic:
+- **Menú de Acciones de Línea (Tres Puntos `⋮`):** Cada línea cuenta con un menú desplegable contextual con las siguientes opciones:
+  - **💬 Enviar Mensaje:** Abre un modal interactivo que permite enviar mensajes de texto de prueba directamente desde esa línea específica a cualquier número internacional (invocando `POST /api/messages/text`).
+  - **📱 Vincular / Estado QR:** (Para líneas `baileys`) Abre el visor en tiempo real para generar o regenerar el código QR de WhatsApp Web o consultar la conexión activa.
+  - **★ Hacer Predeterminada:** Designa la línea como el canal por defecto del sistema.
+  - **🗑️ Desactivar Línea:** Da de baja la línea del enrutador de mensajes.
+- **Vincular WhatsApp Web (Código QR):** Para canales asociados al proveedor `baileys`, al abrir la vinculación QR:
   1. Se inicializa el socket directo de Baileys.
   2. Se renderiza un código QR de alta resolución en tiempo real.
   3. Escaneas el código desde WhatsApp en tu teléfono (*Dispositivos vinculados > Vincular un dispositivo*).
   4. La sesión se autentica, almacena las credenciales en `./data/sessions/<channel_id>/` de forma permanente y detecta el número telefónico automáticamente.
-- **Definir Línea por Defecto:** Al presionar `Hacer Default`, ese canal se convierte en la línea predeterminada global. Los agentes IA que envíen mensajes sin especificar el parámetro `channel` utilizarán automáticamente esta línea.
-- **Desactivar Línea:** Da de baja la línea del enrutador de mensajes.
+
+---
+
+## 3. Documentación Interactiva OpenAPI / Swagger UI
+
+El servidor expone la especificación OpenAPI 3.1 completa e interactiva:
+- **Swagger UI:** `http://localhost:3000/docs` — Explora, prueba y ejecuta todas las rutas REST (`/api/*` y `/api/admin/*`) interactivamente desde el navegador.
+- **Especificación OpenAPI (JSON):** `http://localhost:3000/openapi.json` — Archivo JSON para importar en Postman, Insomnia o generadores de clientes.
+- **Acceso directo desde el Panel:** La barra lateral del panel web incluye un enlace directo con icono `📖 API Docs (Swagger)`.
 
 ---
 

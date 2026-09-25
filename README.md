@@ -41,6 +41,7 @@ docker compose up -d
 
 El servicio estará disponible en:
 - **Panel de Administración:** `http://localhost:3000/panel` (Usuario: `admin`, Clave: `admin` por defecto)
+- **Documentación Swagger UI Interactiva:** `http://localhost:3000/docs` (o `/openapi.json`)
 - **Endpoint MCP para Agentes IA:** `http://localhost:3000/mcp`
 - **REST API Directa:** `http://localhost:3000/api` (Ver [docs/rest-api-reference.md](docs/rest-api-reference.md))
 

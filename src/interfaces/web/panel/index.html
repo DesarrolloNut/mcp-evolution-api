@@ -55,6 +55,9 @@
         <button class="nav-item" data-tab="channels">
           <span class="icon">📱</span> Canales / Líneas
         </button>
+        <a href="/docs" target="_blank" class="nav-item nav-link-external">
+          <span class="icon">📖</span> API Docs (Swagger)
+        </a>
       </nav>
 
       <div class="sidebar-footer">
@@ -172,7 +175,7 @@
         <div class="modal-body">
           <div class="form-group">
             <label>Nombre del Proveedor</label>
-            <input type="text" id="p-name" placeholder="evolution-principal" required>
+            <input type="text" id="p-name" placeholder="whatsapp-directo" required>
           </div>
           <div class="form-group">
             <label>Tipo de Proveedor</label>
@@ -183,7 +186,7 @@
               <option value="twilio">Twilio (Vista previa)</option>
             </select>
           </div>
-          <div id="p-external-fields">
+          <div id="p-external-fields" class="hidden">
             <div class="form-group">
               <label>URL Base</label>
               <input type="url" id="p-url" placeholder="https://mi-evolution.ejemplo.com">
@@ -302,6 +305,40 @@
         <button type="button" class="btn btn-secondary btn-sm" id="qr-retry-action-btn">↻ Regenerar QR</button>
         <button type="button" class="btn btn-secondary close-modal">Cerrar</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Modal Send Message -->
+  <div id="send-message-modal" class="modal hidden">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div>
+          <h3>💬 Enviar Mensaje de WhatsApp</h3>
+          <p class="text-muted" id="sm-modal-subtitle">Desde línea: -</p>
+        </div>
+        <button class="close-modal">&times;</button>
+      </div>
+      <form id="send-message-form">
+        <div class="modal-body">
+          <input type="hidden" id="sm-channel-name">
+          <div class="form-group">
+            <label for="sm-recipient">Destinatario (Teléfono con código de país o JID de grupo)</label>
+            <input type="text" id="sm-recipient" placeholder="ej. 18095551234 o +18095551234" required>
+            <small class="text-muted">Ingresa el número internacional sin espacios ni guiones.</small>
+          </div>
+          <div class="form-group">
+            <label for="sm-text">Mensaje</label>
+            <textarea id="sm-text" rows="4" placeholder="Escribe el mensaje de texto que deseas enviar..." required></textarea>
+          </div>
+          <div id="sm-modal-alert" class="alert hidden"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary close-modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="sm-submit-btn">
+            <span id="sm-btn-text">🚀 Enviar Mensaje</span>
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 
