@@ -30,6 +30,7 @@ import { createMcpAuthMiddleware, setupMcpTransport } from './interfaces/mcp/tra
 import { createAdminRouter } from './interfaces/admin/router.js';
 import { createMessagingRestRouter } from './interfaces/rest/messagingRouter.js';
 import { wrapUntrustedContent } from './application/security/promptInjection.js';
+import { BaileysSessionManager } from './infrastructure/providers/baileys/sessionManager.js';
 
 // Legacy direct client & registry imports for stdio mode
 import { EvolutionClient } from './client.js';
@@ -63,12 +64,33 @@ async function startServerMode(): Promise<void> {
   const channelResolver = new ChannelResolver(channelRepo, providerRepo, providerFactory);
   const adminAuthService = new AdminAuthService(config);
 
-  // 3. Initialize MCP Server
+  // 3. Hydrate existing Baileys WhatsApp Web sessions
+  try {
+    const providers = await providerRepo.findAll();
+    const baileysProviderIds = new Set(
+      providers.filter((p) => p.type === 'baileys' && p.isActive).map((p) => p.id)
+    );
+    if (baileysProviderIds.size > 0) {
+      const allChannels = await channelRepo.findAll();
+      const activeBaileysChannelIds = allChannels
+        .filter((c) => c.isActive && baileysProviderIds.has(c.providerId))
+        .map((c) => c.id);
+
+      if (activeBaileysChannelIds.length > 0) {
+        const sessionManager = BaileysSessionManager.getInstance();
+        await sessionManager.hydrateExistingSessions(activeBaileysChannelIds);
+      }
+    }
+  } catch (err) {
+    console.error(`[${PKG_NAME}] Error hydrating Baileys sessions:`, (err as Error).message);
+  }
+
+  // 4. Initialize MCP Server
   const mcpServer = createUnifiedMcpServer(channelResolver);
   const mcpTransportHandler = setupMcpTransport(mcpServer);
   const mcpAuthMiddleware = createMcpAuthMiddleware(config.mcpApiToken);
 
-  // 4. Initialize Express HTTP Application
+  // 5. Initialize Express HTTP Application
   const app = express();
 
   // Security Headers

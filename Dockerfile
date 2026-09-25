@@ -19,7 +19,7 @@ ENV NODE_ENV=production
 WORKDIR /app
 
 LABEL org.opencontainers.image.title="mcp-whatsapp" \
-      org.opencontainers.image.description="Unified Multi-Channel WhatsApp MCP Gateway (Evolution API, Meta, Twilio)" \
+      org.opencontainers.image.description="Unified Multi-Channel WhatsApp MCP Gateway (Direct WhatsApp Web Baileys, Evolution API, Meta, Twilio)" \
       org.opencontainers.image.source="https://github.com/DesarrolloNut/mcp-whatsapp" \
       org.opencontainers.image.licenses="MIT"
 
@@ -30,8 +30,8 @@ RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 # Bring in compiled output and web panel assets
 COPY --from=builder /app/dist ./dist
 
-# Prepare data directory for mounted SQLite persistence with proper node user permissions
-RUN mkdir -p /app/data && chown -R node:node /app/data
+# Prepare data directory for mounted SQLite persistence and sessions with proper node user permissions
+RUN mkdir -p /app/data /app/data/sessions && chown -R node:node /app/data
 
 # Declare persistence volume and expose default HTTP gateway port
 VOLUME ["/app/data"]

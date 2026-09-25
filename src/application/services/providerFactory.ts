@@ -16,13 +16,14 @@ export class ProviderFactory {
   ) {}
 
   create(provider: Provider): IWhatsAppProvider {
-    const plainApiKey = provider.apiKeyEncrypted ? decrypt(provider.apiKeyEncrypted, this.encryptionKey) : '';
-
     switch (provider.type) {
       case 'baileys':
         return new BaileysAdapter(this.sessionManager);
 
       case 'evolution': {
+        const plainApiKey = provider.apiKeyEncrypted
+          ? decrypt(provider.apiKeyEncrypted, this.encryptionKey)
+          : '';
         const client = new EvolutionClient({
           baseUrl: provider.baseUrl,
           apiKey: plainApiKey,

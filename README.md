@@ -2,18 +2,19 @@
 
 Gateway multicanal de WhatsApp para agentes de Inteligencia Artificial (Claude Desktop, Cursor, Claude Code) basado en el protocolo [MCP](https://modelcontextprotocol.io) (Model Context Protocol).
 
-Permite conectar agentes IA a múltiples proveedores de WhatsApp (**Evolution API v2**, **Meta Cloud API**, **Twilio**) y gestionar dinámicamente múltiples líneas telefónicas (**canales**) desde un panel de administración web, con almacenamiento persistente local en disco.
+Permite conectar agentes IA a WhatsApp mediante **conexión directa a WhatsApp Web (Baileys embebido con código QR)** o a través de múltiples proveedores externos (**Evolution API v2**, **Meta Cloud API**, **Twilio**), gestionando dinámicamente múltiples líneas telefónicas (**canales**) desde un panel de administración web, con almacenamiento persistente local en disco.
 
 ---
 
 ## Características Principales
 
-- **Abstracción Agnóstica de Proveedores:** Conecta tu infraestructura a Evolution API v2, Meta Cloud API o Twilio bajo una interfaz unificada.
+- **Conexión Directa a WhatsApp Web (Baileys Embebido):** Conecta tu WhatsApp escaneando un código QR en el panel web. ¡Sin necesidad de servidores externos como Evolution API!
+- **Abstracción Agnóstica de Proveedores:** Conecta tu infraestructura a WhatsApp Web directo, Evolution API v2, Meta Cloud API o Twilio bajo una interfaz unificada.
 - **Gestión Multicanal:** Configura múltiples números o líneas telefónicas (ej. *trabajo*, *personal*, *soporte*, *ventas*) y designa una **línea por defecto** global.
 - **REST API Directa (`/api`):** Endpoints HTTP estándar para enviar mensajes, consultar chats y verificar números sin necesidad de usar el protocolo MCP.
-- **Panel Web de Administración (`/panel`):** Interfaz SPA moderna (tema oscuro inspirado en WhatsApp) para registrar proveedores, añadir líneas, probar conectividad y monitorear el estado del servicio en tiempo real.
+- **Panel Web de Administración (`/panel`):** Interfaz SPA moderna (tema oscuro inspirado en WhatsApp) para registrar proveedores, vincular WhatsApp Web vía QR en vivo, gestionar líneas y monitorear el estado en tiempo real.
 - **Servidor MCP HTTP/SSE:** Transporte moderno `Streamable HTTP / SSE` con autenticación mediante Bearer token (`MCP_API_TOKEN`).
-- **Persistencia Montada en Disco (SQLite):** Configuración resguardada en `./data/mcp-whatsapp.db` con modo WAL (Write-Ahead Logging), garantizando **cero pérdida de datos** tras reinicios o despliegues Docker.
+- **Persistencia Montada en Disco (SQLite + Sesiones):** Configuración resguardada en `./data/mcp-whatsapp.db` con modo WAL y credenciales de sesión en `./data/sessions/<channel_id>/`, garantizando **cero pérdida de datos o desvinculaciones** tras reinicios o despliegues Docker.
 - **Copias de Seguridad en Caliente:** Script integrado `npm run db:backup` para generar snapshots sin detener el servicio.
 - **Seguridad Robusta:** Aislamiento activo contra Prompt Injection (`<untrusted_whatsapp_data>`), cifrado AES-256-GCM para API keys en reposo y mitigación de SSRF.
 - **Retrocompatibilidad Total:** Mantiene compatibilidad con clientes existentes mediante alias automáticos `evolution_*` y modo legacy `stdio`.

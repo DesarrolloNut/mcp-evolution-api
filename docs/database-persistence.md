@@ -17,8 +17,9 @@ En entornos con contenedores Docker, Kubernetes o VPS:
 
 ## 2. Arquitectura de Almacenamiento
 
-- **Ruta predeterminada:** `./data/mcp-whatsapp.db` (configurable vía `SQLITE_PATH`).
-- **Directorio de datos:** `./data/`.
+- **Ruta de base de datos:** `./data/mcp-whatsapp.db` (configurable vía `SQLITE_PATH`).
+- **Directorio de credenciales de WhatsApp Web (Baileys):** `./data/sessions/<channel_id>/` (almacena `creds.json` y llaves criptográficas de emparejamiento).
+- **Directorio de respaldos:** `./data/backups/`.
 - **Motor:** SQLite a través de `better-sqlite3`.
 - **Modo WAL (Write-Ahead Logging):**
   - Activo con `PRAGMA journal_mode = WAL;`.
@@ -33,7 +34,7 @@ En entornos con contenedores Docker, Kubernetes o VPS:
 ### 3.1 Permisos del Contenedor (`USER node`)
 El contenedor se ejecuta bajo el usuario no privilegiado `node` (UID 1000). Para evitar errores de permisos (`EACCES` o `SQLITE_CANTOPEN`), el `Dockerfile` asegura la propiedad del directorio:
 ```dockerfile
-RUN mkdir -p /app/data && chown -R node:node /app/data
+RUN mkdir -p /app/data /app/data/sessions && chown -R node:node /app/data
 VOLUME ["/app/data"]
 ```
 
@@ -72,21 +73,24 @@ services:
 
 ## 4. Control de Versiones (.gitignore)
 
-La base de datos local y sus archivos temporales están excluidos de Git:
+La base de datos local, las sesiones de WhatsApp y sus archivos temporales están excluidos de Git:
 ```gitignore
 data/*
 !data/.gitkeep
+!data/sessions/.gitkeep
 *.db
 *.db-wal
 *.db-shm
 *.db-journal
 ```
-El archivo `data/.gitkeep` preserva la estructura de carpetas al clonar el repositorio en un nuevo entorno.
+Los archivos `.gitkeep` preservan la estructura de carpetas al clonar el repositorio en un nuevo entorno.
 
 ---
 
 ## 5. Copias de Seguridad (Backups)
 
-Para realizar un respaldo en caliente sin detener el servidor:
-- SQLite permite hacer copias seguras mientras la aplicación está escribiendo.
-- Próximamente se integrará un script `npm run db:backup` para generar snapshots automáticos en `data/backups/`.
+Para realizar un respaldo en caliente de la base de datos sin detener el servidor:
+```bash
+npm run db:backup
+```
+Los respaldos se generan de manera atómica y se almacenan automáticamente con marca de tiempo en `data/backups/`.

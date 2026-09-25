@@ -41,6 +41,27 @@ async function runGatewaySmoke(): Promise<void> {
   const registry = buildUnifiedRegistry();
   console.log(`✅ Unified MCP Tool Registry loaded: ${registry.tools.length} tools registered.`);
 
+  // 4. Verify Baileys Direct Provider & SessionManager
+  const { BaileysSessionManager } = await import('./infrastructure/providers/baileys/sessionManager.js');
+  const sessionManager = BaileysSessionManager.getInstance();
+  const mockBaileysStatus = sessionManager.getStatus('smoke-test-channel');
+  console.log(`✅ Baileys Session Manager active (Initial status: ${mockBaileysStatus.status}, connected: ${mockBaileysStatus.isConnected})`);
+
+  const mockBaileysProvider = {
+    id: 'smoke-baileys',
+    name: 'Embedded Baileys Smoke',
+    type: 'baileys' as const,
+    baseUrl: 'embedded://whatsapp-web',
+    apiKeyEncrypted: 'mock-encrypted-key',
+    config: {},
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  const baileysAdapter = providerFactory.create(mockBaileysProvider);
+  const connTest = await baileysAdapter.testConnection();
+  console.log(`✅ Baileys Adapter testConnection: success=${connTest.success}, message="${connTest.message}"`);
+
   closeDatabase();
   console.log('\nAll gateway smoke checks passed successfully.');
 }
