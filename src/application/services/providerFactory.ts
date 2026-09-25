@@ -5,15 +5,23 @@ import { EvolutionClient } from '../../infrastructure/providers/evolution/client
 import { EvolutionAdapter } from '../../infrastructure/providers/evolution/adapter.js';
 import { MetaCloudAdapter } from '../../infrastructure/providers/meta/adapter.js';
 import { TwilioAdapter } from '../../infrastructure/providers/twilio/adapter.js';
+import { BaileysAdapter } from '../../infrastructure/providers/baileys/adapter.js';
+import { BaileysSessionManager } from '../../infrastructure/providers/baileys/sessionManager.js';
 import { ProviderCapabilityError } from '../../domain/errors.js';
 
 export class ProviderFactory {
-  constructor(private readonly encryptionKey: string) {}
+  constructor(
+    private readonly encryptionKey: string,
+    private readonly sessionManager: BaileysSessionManager = BaileysSessionManager.getInstance()
+  ) {}
 
   create(provider: Provider): IWhatsAppProvider {
-    const plainApiKey = decrypt(provider.apiKeyEncrypted, this.encryptionKey);
+    const plainApiKey = provider.apiKeyEncrypted ? decrypt(provider.apiKeyEncrypted, this.encryptionKey) : '';
 
     switch (provider.type) {
+      case 'baileys':
+        return new BaileysAdapter(this.sessionManager);
+
       case 'evolution': {
         const client = new EvolutionClient({
           baseUrl: provider.baseUrl,

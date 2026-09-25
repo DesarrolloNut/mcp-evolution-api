@@ -9,9 +9,9 @@ Este documento describe la arquitectura multicanal introducida en `mcp-whatsapp`
 ### 1.1 Proveedor (Provider)
 Un **Proveedor** representa el backend o servicio de mensajería que gestiona la conexión con WhatsApp.  
 Cada proveedor tiene:
-- `name`: Identificador único (ej. `evolution-servidor-1`, `meta-oficial`).
-- `type`: El tipo de adaptador (`evolution`, `meta`, `twilio`).
-- `baseUrl`: Dirección del servidor o API del proveedor.
+- `name`: Identificador único (ej. `whatsapp-directo-1`, `evolution-servidor-1`, `meta-oficial`).
+- `type`: El tipo de adaptador (`baileys` [Directo/Embebido], `evolution`, `meta`, `twilio`).
+- `baseUrl`: Dirección del servidor o API del proveedor (para `baileys` es interno).
 - `apiKey`: Credencial de acceso (almacenada cifrada con AES-256-GCM en disco).
 
 ### 1.2 Canal / Línea Telefónica (Channel)

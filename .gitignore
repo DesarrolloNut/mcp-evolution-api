@@ -8,6 +8,9 @@ dist/
 # Data and SQLite databases
 data/*
 !data/.gitkeep
+!data/sessions/
+data/sessions/*
+!data/sessions/.gitkeep
 *.db
 *.db-wal
 *.db-shm

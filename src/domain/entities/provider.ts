@@ -1,4 +1,4 @@
-export type ProviderType = 'evolution' | 'meta' | 'twilio';
+export type ProviderType = 'evolution' | 'meta' | 'twilio' | 'baileys';
 
 export interface ProviderConfig {
   timeoutMs?: number;

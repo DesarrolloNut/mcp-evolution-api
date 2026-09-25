@@ -46,38 +46,51 @@ export function createProvidersRouter(
   router.post('/', async (req: Request, res: Response) => {
     try {
       const { name, type, baseUrl, apiKey, config } = req.body || {};
-      if (!name || !type || !baseUrl || !apiKey) {
-        res.status(400).json({ error: 'Missing required fields: name, type, baseUrl, apiKey' });
+      if (!name || !type) {
+        res.status(400).json({ error: 'Missing required fields: name, type' });
         return;
       }
 
-      const validTypes: ProviderType[] = ['evolution', 'meta', 'twilio'];
+      const validTypes: ProviderType[] = ['evolution', 'meta', 'twilio', 'baileys'];
       if (!validTypes.includes(type)) {
         res.status(400).json({ error: `Invalid provider type. Must be one of: ${validTypes.join(', ')}` });
         return;
       }
 
-      // SSRF validation for baseUrl
-      try {
-        const parsedUrl = new URL(String(baseUrl).trim());
-        if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
-          res.status(400).json({ error: 'baseUrl must use http or https protocol' });
+      let effectiveBaseUrl = baseUrl ? String(baseUrl).trim().replace(/\/+$/, '') : '';
+      let effectiveApiKey = apiKey ? String(apiKey).trim() : '';
+
+      if (type === 'baileys') {
+        if (!effectiveBaseUrl) effectiveBaseUrl = 'embedded://whatsapp-web';
+        if (!effectiveApiKey) effectiveApiKey = 'embedded-session-auth';
+      } else {
+        if (!effectiveBaseUrl || !effectiveApiKey) {
+          res.status(400).json({ error: 'Missing required fields: baseUrl, apiKey' });
           return;
         }
-        if (/^169\.254\.\d+\.\d+$/.test(parsedUrl.hostname)) {
-          res.status(400).json({ error: 'baseUrl cannot target link-local or cloud metadata endpoints' });
+
+        // SSRF validation for baseUrl
+        try {
+          const parsedUrl = new URL(effectiveBaseUrl);
+          if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+            res.status(400).json({ error: 'baseUrl must use http or https protocol' });
+            return;
+          }
+          if (/^169\.254\.\d+\.\d+$/.test(parsedUrl.hostname)) {
+            res.status(400).json({ error: 'baseUrl cannot target link-local or cloud metadata endpoints' });
+            return;
+          }
+        } catch {
+          res.status(400).json({ error: 'Invalid baseUrl format' });
           return;
         }
-      } catch {
-        res.status(400).json({ error: 'Invalid baseUrl format' });
-        return;
       }
 
       const created = await providerRepo.create({
         name: String(name).trim(),
         type,
-        baseUrl: String(baseUrl).trim().replace(/\/+$/, ''),
-        apiKey: String(apiKey).trim(),
+        baseUrl: effectiveBaseUrl,
+        apiKey: effectiveApiKey,
         config: typeof config === 'object' ? config : {},
       });
 
