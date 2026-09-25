@@ -3,6 +3,8 @@ import { DomainMessage } from './message.js';
 export interface DomainChat {
   id: string; // JID or phone number
   name?: string;
+  phoneNumber?: string;
+  lid?: string;
   isGroup: boolean;
   unreadCount?: number;
   timestamp?: number;
