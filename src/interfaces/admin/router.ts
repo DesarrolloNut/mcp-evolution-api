@@ -16,6 +16,7 @@ export interface AdminRouterDependencies {
   providerRepo: IProviderRepository;
   channelRepo: IChannelRepository;
   providerFactory: ProviderFactory;
+  mcpApiToken?: string;
 }
 
 export function createAdminRouter(deps: AdminRouterDependencies): Router {
@@ -45,7 +46,7 @@ export function createAdminRouter(deps: AdminRouterDependencies): Router {
   router.use('/providers', authMiddleware, createProvidersRouter(deps.providerRepo, deps.providerFactory));
   router.use('/channels', authMiddleware, createChannelsRouter(deps.channelRepo, deps.providerRepo));
   router.use('/channels', authMiddleware, createSessionRouter(deps.channelRepo, deps.providerRepo, sessionManager));
-  router.use('/dashboard', authMiddleware, createDashboardRouter(deps.providerRepo, deps.channelRepo));
+  router.use('/dashboard', authMiddleware, createDashboardRouter(deps.providerRepo, deps.channelRepo, deps.mcpApiToken));
 
   return router;
 }

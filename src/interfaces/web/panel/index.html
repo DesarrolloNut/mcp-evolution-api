@@ -55,6 +55,9 @@
         <button class="nav-item" data-tab="channels">
           <span class="icon">📱</span> Canales / Líneas
         </button>
+        <button class="nav-item" data-tab="mcp">
+          <span class="icon">🤖</span> Conexión MCP
+        </button>
         <a href="/docs" target="_blank" class="nav-item nav-link-external">
           <span class="icon">📖</span> API Docs (Swagger)
         </a>
@@ -96,11 +99,16 @@
         </div>
 
         <div class="card mt-4">
-          <h3>Estado de la Persistencia</h3>
-          <p class="text-muted mt-1">Base de datos SQLite montada en disco en modo WAL con protección contra pérdida de datos.</p>
-          <div class="info-row mt-2">
-            <strong>Endpoint MCP de Agentes:</strong>
-            <code>/mcp</code> (Requiere Bearer MCP_API_TOKEN)
+          <div class="flex-between">
+            <div>
+              <h3>Conexión MCP para Agentes de IA</h3>
+              <p class="text-muted mt-1">Conecta Cursor, Claude Desktop o Claude Code directamente a este gateway multicanal.</p>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="window.switchTab('mcp')">🔌 Ver Guía de Conexión</button>
+          </div>
+          <div class="info-row mt-3">
+            <strong>Endpoint MCP en Vivo:</strong>
+            <code id="dash-mcp-url">-</code>
           </div>
         </div>
       </section>
@@ -159,6 +167,84 @@
               <tr><td colspan="6" class="text-center text-muted">Cargando canales...</td></tr>
             </tbody>
           </table>
+        </div>
+      </section>
+
+      <!-- Tab 4: MCP Connection Guide -->
+      <section id="tab-mcp" class="tab-pane">
+        <header class="page-header">
+          <div>
+            <h1>Conexión MCP para Agentes de IA</h1>
+            <p class="text-muted">Parámetros reales y fragmentos de configuración listos para copiar en tus clientes MCP.</p>
+          </div>
+          <button class="btn btn-secondary btn-sm" id="refresh-mcp-btn">↻ Actualizar</button>
+        </header>
+
+        <!-- Real Live Parameters Grid -->
+        <div class="stats-grid mb-4">
+          <div class="stat-card">
+            <span class="stat-title">URL del Endpoint MCP</span>
+            <div class="mcp-endpoint-box">
+              <code id="mcp-endpoint-url">http://localhost:3000/mcp</code>
+              <button type="button" class="btn btn-secondary btn-sm copy-btn" data-target="mcp-endpoint-url">📋 Copiar URL</button>
+            </div>
+          </div>
+          <div class="stat-card">
+            <span class="stat-title">Transporte Protocolo</span>
+            <div><span class="badge badge-green">Streamable HTTP / SSE</span></div>
+          </div>
+          <div class="stat-card">
+            <span class="stat-title">Autenticación Requerida</span>
+            <div><span id="mcp-auth-status" class="badge badge-yellow">Verificando...</span></div>
+          </div>
+          <div class="stat-card highlight">
+            <span class="stat-title">Línea Predeterminada</span>
+            <span class="stat-value text-green" id="mcp-default-line-display" style="font-size: 1.15rem;">Ninguna</span>
+          </div>
+        </div>
+
+        <!-- Client Selector & Snippets Card -->
+        <div class="card mt-4">
+          <div class="mcp-client-header">
+            <div>
+              <h3>Configuración por Cliente</h3>
+              <p class="text-muted mt-1">Selecciona tu cliente MCP para generar el bloque de configuración con la URL real de este servidor.</p>
+            </div>
+            <div class="mcp-client-tabs">
+              <button type="button" class="mcp-tab-btn active" data-client="cursor">Cursor</button>
+              <button type="button" class="mcp-tab-btn" data-client="claude-desktop">Claude Desktop</button>
+              <button type="button" class="mcp-tab-btn" data-client="claude-code">Claude Code (CLI)</button>
+              <button type="button" class="mcp-tab-btn" data-client="windsurf">Windsurf</button>
+            </div>
+          </div>
+
+          <div class="snippet-container mt-3">
+            <div class="snippet-header">
+              <span class="snippet-filename" id="mcp-snippet-filename">.cursor/mcp.json</span>
+              <button type="button" class="btn btn-primary btn-sm copy-btn" id="mcp-copy-snippet-btn" data-target="mcp-snippet-code">📋 Copiar Configuración</button>
+            </div>
+            <pre class="snippet-code"><code id="mcp-snippet-code">// Cargando configuración...</code></pre>
+          </div>
+        </div>
+
+        <!-- Available Tools Overview Card -->
+        <div class="card mt-4">
+          <h3>Herramientas MCP Expuestas al Agente</h3>
+          <p class="text-muted mt-1">Tu agente de IA (Claude, Cursor, etc.) dispondrá automáticamente de estas herramientas:</p>
+          <div class="tools-grid mt-3">
+            <div class="tool-badge-item"><code>whatsapp_send_text</code> <small>Enviar mensajes de texto, menciones y citas</small></div>
+            <div class="tool-badge-item"><code>whatsapp_send_media</code> <small>Imágenes, videos, audios, documentos y stickers</small></div>
+            <div class="tool-badge-item"><code>whatsapp_send_location</code> <small>Coordenadas GPS y nombres de ubicación</small></div>
+            <div class="tool-badge-item"><code>whatsapp_send_contact</code> <small>Tarjetas de contacto vCard</small></div>
+            <div class="tool-badge-item"><code>whatsapp_send_reaction</code> <small>Reaccionar a mensajes con emojis</small></div>
+            <div class="tool-badge-item"><code>whatsapp_find_messages</code> <small>Consultar historial de mensajes de chats</small></div>
+            <div class="tool-badge-item"><code>whatsapp_find_chats</code> <small>Listar conversaciones activas</small></div>
+            <div class="tool-badge-item"><code>whatsapp_check_number</code> <small>Verificar si un número está en WhatsApp</small></div>
+            <div class="tool-badge-item"><code>whatsapp_create_group</code> <small>Crear grupos de WhatsApp con participantes</small></div>
+            <div class="tool-badge-item"><code>whatsapp_get_group_info</code> <small>Obtener metadatos y miembros de grupo</small></div>
+            <div class="tool-badge-item"><code>whatsapp_update_group_participants</code> <small>Añadir, remover o promover miembros</small></div>
+            <div class="tool-badge-item"><code>whatsapp_leave_group</code> <small>Abandonar grupos de WhatsApp</small></div>
+          </div>
         </div>
       </section>
     </main>

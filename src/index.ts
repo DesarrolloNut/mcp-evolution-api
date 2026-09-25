@@ -116,6 +116,7 @@ async function startServerMode(): Promise<void> {
       providerRepo,
       channelRepo,
       providerFactory,
+      mcpApiToken: config.mcpApiToken,
     })
   );
 

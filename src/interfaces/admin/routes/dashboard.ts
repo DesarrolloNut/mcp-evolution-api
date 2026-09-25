@@ -4,7 +4,8 @@ import { IChannelRepository } from '../../../domain/ports/IChannelRepository.js'
 
 export function createDashboardRouter(
   providerRepo: IProviderRepository,
-  channelRepo: IChannelRepository
+  channelRepo: IChannelRepository,
+  mcpApiToken?: string
 ): Router {
   const router = Router();
 
@@ -25,6 +26,12 @@ export function createDashboardRouter(
             }
           : null,
         uptimeSeconds: Math.floor(process.uptime()),
+        mcp: {
+          endpoint: '/mcp',
+          transport: 'Streamable HTTP / SSE',
+          authRequired: Boolean(mcpApiToken && mcpApiToken.trim().length > 0),
+          tokenPlaceholder: mcpApiToken && mcpApiToken.trim().length > 0 ? 'MCP_API_TOKEN' : null,
+        },
         memoryUsage: process.memoryUsage(),
       });
     } catch (err) {
