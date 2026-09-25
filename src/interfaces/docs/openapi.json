@@ -1,9 +1,9 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "MCP WhatsApp Gateway REST API",
+    "title": "MCP WhatsApp Gateway REST & MCP Server API",
     "version": "2.0.0",
-    "description": "API REST unificada y multicanal de WhatsApp para agentes de IA y aplicaciones cliente. Soporta WhatsApp Web directo (Baileys), Evolution API v2, Meta Cloud API y Twilio."
+    "description": "API REST unificada y Servidor MCP multicanal para conectar agentes de Inteligencia Artificial (Cursor, Claude Desktop, Claude Code, Windsurf) y aplicaciones a WhatsApp.\n\n### 🔌 Cómo conectar tu Agente de IA mediante el protocolo MCP\nEl servidor expone el endpoint oficial del protocolo Model Context Protocol (MCP) en `/mcp` mediante transporte **Streamable HTTP / SSE**.\n\n- **Endpoint MCP:** `http://localhost:3000/mcp` (o `http://<tu-host>:<puerto>/mcp`)\n- **Transporte:** Streamable HTTP / Server-Sent Events (SSE)\n- **Autenticación:** Si se configuró la variable de entorno `MCP_API_TOKEN`, envía la cabecera `Authorization: Bearer <MCP_API_TOKEN>`\n\n#### Configuración para Cursor (`.cursor/mcp.json`):\n```json\n{\n  \"mcpServers\": {\n    \"whatsapp\": {\n      \"url\": \"http://localhost:3000/mcp\",\n      \"headers\": {\n        \"Authorization\": \"Bearer tu-token-mcp-secreto\"\n      }\n    }\n  }\n}\n```\n\n#### Configuración para Claude Desktop (`claude_desktop_config.json`):\n```json\n{\n  \"mcpServers\": {\n    \"whatsapp\": {\n      \"command\": \"npx\",\n      \"args\": [\n        \"-y\",\n        \"@modelcontextprotocol/inspector\",\n        \"--sse\",\n        \"http://localhost:3000/mcp\"\n      ],\n      \"headers\": {\n        \"Authorization\": \"Bearer tu-token-mcp-secreto\"\n      }\n    }\n  }\n}\n```\n\n#### Configuración para Claude Code CLI:\n```bash\nclaude mcp add whatsapp http://localhost:3000/mcp --header \"Authorization: Bearer tu-token-mcp-secreto\"\n```"
   },
   "servers": [
     {

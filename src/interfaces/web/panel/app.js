@@ -138,20 +138,27 @@
   }
 
   // Tab Navigation
+  window.switchTab = (tabId) => {
+    navItems.forEach((b) => b.classList.remove('active'));
+    tabPanes.forEach((p) => p.classList.remove('active'));
+
+    const navBtn = document.querySelector(`.nav-item[data-tab="${tabId}"]`);
+    if (navBtn) navBtn.classList.add('active');
+
+    const targetPane = document.getElementById(`tab-${tabId}`);
+    if (targetPane) targetPane.classList.add('active');
+
+    if (tabId === 'dashboard') loadDashboard();
+    if (tabId === 'providers') loadProviders();
+    if (tabId === 'channels') loadChannels();
+    if (tabId === 'mcp') loadMcpGuide();
+  };
+
   navItems.forEach((btn) => {
     if (btn.tagName.toLowerCase() === 'button') {
       btn.addEventListener('click', () => {
         const tabId = btn.getAttribute('data-tab');
-        navItems.forEach((b) => b.classList.remove('active'));
-        tabPanes.forEach((p) => p.classList.remove('active'));
-
-        btn.classList.add('active');
-        const targetPane = document.getElementById(`tab-${tabId}`);
-        if (targetPane) targetPane.classList.add('active');
-
-        if (tabId === 'dashboard') loadDashboard();
-        if (tabId === 'providers') loadProviders();
-        if (tabId === 'channels') loadChannels();
+        window.switchTab(tabId);
       });
     }
   });
@@ -217,9 +224,13 @@
   channelProviderSelect.addEventListener('change', updateChannelFormVisibility);
 
   // Data Loading: Dashboard
+  let cachedDashboardStats = null;
+  let currentMcpClient = 'cursor';
+
   async function loadDashboard() {
     try {
       const stats = await api('/api/admin/dashboard');
+      cachedDashboardStats = stats;
       statProviders.textContent = stats.activeProvidersCount;
       statChannels.textContent = stats.activeChannelsCount;
       statDefaultChannel.textContent = stats.defaultChannel
@@ -229,6 +240,11 @@
       const hours = Math.floor(stats.uptimeSeconds / 3600);
       const mins = Math.floor((stats.uptimeSeconds % 3600) / 60);
       statUptime.textContent = `${hours}h ${mins}m`;
+
+      const dashMcpUrl = document.getElementById('dash-mcp-url');
+      if (dashMcpUrl) {
+        dashMcpUrl.textContent = `${window.location.origin}/mcp`;
+      }
     } catch (err) {
       console.error('Error loading dashboard:', err);
     }
@@ -237,6 +253,157 @@
   if (refreshDashboardBtn) {
     refreshDashboardBtn.addEventListener('click', loadDashboard);
   }
+
+  // Data Loading: MCP Connection Guide
+  async function loadMcpGuide() {
+    try {
+      if (!cachedDashboardStats) {
+        cachedDashboardStats = await api('/api/admin/dashboard');
+      }
+      const stats = cachedDashboardStats;
+      const origin = window.location.origin;
+      const mcpUrl = `${origin}/mcp`;
+
+      const mcpEndpointUrlEl = document.getElementById('mcp-endpoint-url');
+      const mcpAuthStatusEl = document.getElementById('mcp-auth-status');
+      const mcpDefaultLineEl = document.getElementById('mcp-default-line-display');
+
+      if (mcpEndpointUrlEl) mcpEndpointUrlEl.textContent = mcpUrl;
+
+      if (mcpAuthStatusEl) {
+        if (stats.mcp?.authRequired) {
+          mcpAuthStatusEl.className = 'badge badge-yellow';
+          mcpAuthStatusEl.textContent = 'Requiere Bearer MCP_API_TOKEN';
+        } else {
+          mcpAuthStatusEl.className = 'badge badge-green';
+          mcpAuthStatusEl.textContent = 'Sin auth (Modo Desarrollo Activo)';
+        }
+      }
+
+      if (mcpDefaultLineEl) {
+        mcpDefaultLineEl.textContent = stats.defaultChannel
+          ? `${stats.defaultChannel.name}${stats.defaultChannel.phoneNumber ? ` (${stats.defaultChannel.phoneNumber})` : ''}`
+          : 'Ninguna (Configurar en Canales)';
+      }
+
+      renderMcpSnippet(currentMcpClient, mcpUrl, stats.mcp?.authRequired);
+    } catch (err) {
+      console.error('Error loading MCP guide:', err);
+    }
+  }
+
+  function renderMcpSnippet(client, mcpUrl, authRequired) {
+    const filenameEl = document.getElementById('mcp-snippet-filename');
+    const codeEl = document.getElementById('mcp-snippet-code');
+
+    let filename = '';
+    let snippet = '';
+
+    if (client === 'cursor') {
+      filename = '.cursor/mcp.json (o Cursor > Settings > Features > MCP)';
+      snippet = JSON.stringify(
+        {
+          mcpServers: {
+            whatsapp: {
+              url: mcpUrl,
+              ...(authRequired ? { headers: { Authorization: 'Bearer tu-token-mcp-secreto' } } : {}),
+            },
+          },
+        },
+        null,
+        2
+      );
+    } else if (client === 'claude-desktop') {
+      filename = 'claude_desktop_config.json (%APPDATA%\\Claude o ~/Library/Application Support/Claude)';
+      snippet = JSON.stringify(
+        {
+          mcpServers: {
+            whatsapp: {
+              command: 'npx',
+              args: ['-y', '@modelcontextprotocol/inspector', '--sse', mcpUrl],
+              ...(authRequired ? { headers: { Authorization: 'Bearer tu-token-mcp-secreto' } } : {}),
+            },
+          },
+        },
+        null,
+        2
+      );
+    } else if (client === 'claude-code') {
+      filename = 'Terminal / CLI (Claude Code)';
+      snippet = authRequired
+        ? `claude mcp add whatsapp ${mcpUrl} --header "Authorization: Bearer tu-token-mcp-secreto"`
+        : `claude mcp add whatsapp ${mcpUrl}`;
+    } else if (client === 'windsurf') {
+      filename = '~/.codeium/windsurf/mcp_config.json';
+      snippet = JSON.stringify(
+        {
+          mcpServers: {
+            whatsapp: {
+              serverUrl: mcpUrl,
+              ...(authRequired ? { headers: { Authorization: 'Bearer tu-token-mcp-secreto' } } : {}),
+            },
+          },
+        },
+        null,
+        2
+      );
+    }
+
+    if (filenameEl) filenameEl.textContent = filename;
+    if (codeEl) codeEl.textContent = snippet;
+  }
+
+  // MCP Client Tab Switcher
+  document.querySelectorAll('.mcp-tab-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.mcp-tab-btn').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentMcpClient = btn.getAttribute('data-client');
+      const origin = window.location.origin;
+      const mcpUrl = `${origin}/mcp`;
+      renderMcpSnippet(currentMcpClient, mcpUrl, cachedDashboardStats?.mcp?.authRequired);
+    });
+  });
+
+  const refreshMcpBtn = document.getElementById('refresh-mcp-btn');
+  if (refreshMcpBtn) {
+    refreshMcpBtn.addEventListener('click', async () => {
+      cachedDashboardStats = null;
+      await loadMcpGuide();
+    });
+  }
+
+  // 1-Click Copy Buttons
+  document.addEventListener('click', async (e) => {
+    const copyBtn = e.target.closest('.copy-btn');
+    if (!copyBtn) return;
+
+    const targetId = copyBtn.getAttribute('data-target');
+    const targetEl = document.getElementById(targetId);
+    if (!targetEl) return;
+
+    const textToCopy = targetEl.textContent || targetEl.innerText;
+    try {
+      await navigator.clipboard.writeText(textToCopy);
+      const originalText = copyBtn.innerHTML;
+      copyBtn.innerHTML = '✅ ¡Copiado!';
+      setTimeout(() => {
+        copyBtn.innerHTML = originalText;
+      }, 2000);
+    } catch {
+      const textarea = document.createElement('textarea');
+      textarea.value = textToCopy;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      const originalText = copyBtn.innerHTML;
+      copyBtn.innerHTML = '✅ ¡Copiado!';
+      setTimeout(() => {
+        copyBtn.innerHTML = originalText;
+      }, 2000);
+    }
+  });
 
   // Data Loading: Providers
   async function loadProviders() {
